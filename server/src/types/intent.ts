@@ -1,12 +1,10 @@
-export type Intent =
-  | 'mirror.turn_on'
-  | 'mirror.turn_off'
-  | 'skin.analyze'
-  | 'weather.show'
-  | 'unknown';
+import { z } from 'zod'
 
-export interface IntentResult {
-  intent: Intent;
-  confidence: number;
-  reply: string;
-}
+export const IntentSchema = z.object({
+  intent: z.string(),
+  reply: z.string(),
+})
+
+export type Intent = z.infer<
+  typeof IntentSchema
+>
