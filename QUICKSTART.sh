@@ -58,3 +58,9 @@ echo "   ${YELLOW}docker-compose up --build${NC}"
 echo ""
 
 echo -e "${GREEN}✨ That's it! Happy coding!${NC}"
+
+docker run -it --rm -v "$PWD/whisper/models:/models" ghcr.io/ggml-org/whisper.cpp:main "./models/download-ggml-model.sh base /models"
+
+docker run -it --rm -p "8080:8080" -v "$PWD/whisper/models:/models" \
+  ghcr.io/ggml-org/whisper.cpp:main \
+  "whisper-server --host 0.0.0.0 -m /models/ggml-base.bin"
