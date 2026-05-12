@@ -1,16 +1,29 @@
+import fs from 'node:fs'
+
 export class WhisperService {
-  async transcribe(audio: Buffer) {
-    // MVP: placeholder local or API-based whisper
-    // لاحقًا يمكن استبداله بـ whisper.cpp أو cloud STT
+  async transcribe(filePath: string): Promise<string> {
+    const form = new FormData()
 
-    const text = await fakeTranscription(audio);
+    form.append(
+      'file',
+      new Blob([fs.readFileSync(filePath)]),
+      'audio.webm',
+    )
 
-    return text;
+    const res = await fetch(
+      'http://localhost:8000/transcribe',
+      {
+        method: 'POST',
+        body: form,
+      },
+    )
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      throw new Error(data.error || 'whisper failed')
+    }
+
+    return data.text
   }
-}
-
-// TEMP MOCK (استبدله لاحقًا بـ whisper.cpp أو API)
-async function fakeTranscription(_: Buffer): Promise<string> {
-  console.log(_);
-  return await Promise.resolve('مرحبًا، كيف يمكنني مساعدتك؟');
 }

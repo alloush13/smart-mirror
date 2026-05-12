@@ -10,11 +10,9 @@ services:
       PORT: 3000
       MONGODB_URI: mongodb://root:root@mongo:27017/mirror?authSource=admin
       CLIENT_ORIGIN: http://localhost:5173
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      # GEMINI_API_KEY: ${GEMINI_API_KEY}
     ports:
       - "3000:3000"
-    depends_on:
-      - mongo
     volumes:
       - ./server:/app/server
       - /app/server/node_modules
@@ -24,3 +22,11 @@ services:
     container_name: faster-whisper
     volumes:
       - ./audio:/audio
+      
+  whisper-service:
+    build:
+      context: ./whisper-service
+    container_name: whisper-service
+    ports:
+      - '8000:8000'
+    restart: unless-stopped
