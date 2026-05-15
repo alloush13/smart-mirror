@@ -8,7 +8,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      MONGODB_URI: mongodb://root:root@mongo:27017/mirror?authSource=admin
       CLIENT_ORIGIN: http://localhost:5173
       # GEMINI_API_KEY: ${GEMINI_API_KEY}
     ports:
@@ -16,17 +15,24 @@ services:
     volumes:
       - ./server:/app/server
       - /app/server/node_modules
-  whisper:
+  client:
     build:
-      context: ./whisper
-    container_name: faster-whisper
-    volumes:
-      - ./audio:/audio
-      
+      context: ./client
+    container_name: smart_mirror_client
+    ports:
+      - '5173:5173'
+    restart: unless-stopped
   whisper-service:
     build:
       context: ./whisper-service
     container_name: whisper-service
     ports:
       - '8000:8000'
+    restart: unless-stopped
+  skin-analysis-service:
+    build:
+      context: ./skin-analysis-service
+    container_name: skin-analysis-service
+    ports:
+      - '8001:8000'
     restart: unless-stopped

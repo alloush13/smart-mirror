@@ -1,141 +1,81 @@
-import { Server, Socket } from 'socket.io'
+import { Server, Socket } from 'socket.io';
 
-import fs from 'node:fs'
-import path from 'node:path'
-import crypto from 'node:crypto'
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
 
-import { WhisperService }
-from '../services/whisper.service'
+import { WhisperService } from '../services/whisper.service';
 
-import { IntentService }
-from '../services/intent.service'
+import { IntentService } from '../services/intent.service';
 
-import { executeIntent }
-from '../intents/intent.executor'
+import { executeIntent } from '../intents/intent.executor';
 
-export function registerVoiceSocket(
-  io: Server,
-): void {
-  const whisper =
-    new WhisperService()
+export function registerVoiceSocket(io: Server): void {
+  const whisper = new WhisperService();
 
-  const intentService =
-    new IntentService()
+  const intentService = new IntentService();
 
-  io.on(
-    'connection',
-    (socket: Socket) => {
-      console.log(
-        'Client connected:',
-        socket.id,
-      )
+  io.on('connection', (socket: Socket) => {
+    console.log('Client connected:', socket.id);
 
-      socket.on(
-        'audio-final',
-        async (audio: ArrayBuffer) => {
-          const tempDir =
-            path.resolve('/tmp')
+    socket.on('audio-final', async (audio: ArrayBuffer) => {
+      const tempDir = path.resolve('/tmp');
 
-          if (
-            !fs.existsSync(tempDir)
-          ) {
-            fs.mkdirSync(tempDir, {
-              recursive: true,
-            })
-          }
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, {
+          recursive: true,
+        });
+      }
 
-          const filePath =
-            path.join(
-              tempDir,
-              `${crypto.randomUUID()}.webm`,
-            )
+      const filePath = path.join(tempDir, `${crypto.randomUUID()}.webm`);
 
-          try {
-            const buffer =
-              Buffer.from(audio)
+      try {
+        const buffer = Buffer.from(audio);
 
-            fs.writeFileSync(
-              filePath,
-              buffer,
-            )
+        fs.writeFileSync(filePath, buffer);
 
-            console.log(
-              '🎧 audio received:',
-              buffer.length,
-            )
+        console.log('🎧 audio received:', buffer.length);
 
-            // 🎤 Whisper
-            const text =
-              await whisper.transcribe(
-                filePath,
-              )
+        // 🎤 Whisper
+        const text = await whisper.transcribe(filePath);
 
-            if (
-              !text ||
-              !text.trim()
-            ) {
-              return
-            }
+        if (!text || !text.trim()) {
+          return;
+        }
 
-            console.log(
-              '🧠 transcript:',
-              text,
-            )
+        console.log('🧠 transcript:', text);
 
-            socket.emit(
-              'transcript',
-              {
-                text,
-              },
-            )
+        socket.emit('transcript', {
+          text,
+        });
 
-            // 🤖 Gemini Intent
-            const result =
-              await intentService.parseIntent(
-                text,
-              )
+        // 🤖 Gemini Intent
+        const result = await intentService.parseIntent(text);
 
-            console.log(
-              '⚡ intent:',
-              result.intent,
-            )
+        console.log('⚡ intent:', result.intent);
 
-            // ⚙️ Execute action
-            await executeIntent(
-              result.intent,
-            )
+        // ⚙️ Execute action
+        await executeIntent(result.intent);
 
-            // 📡 Send to frontend
-            socket.emit(
-              'ai-response',
-              {
-                intent:
-                  result.intent,
+        // 📡 Send to frontend
+        socket.emit('ai-response', {
+          intent: result.intent,
 
-                reply:
-                  result.reply,
-              },
-            )
-          } catch (error) {
-            console.error(
-              '❌ error:',
-              error,
-            )
+          reply: result.reply,
+        });
+      } catch (error) {
+        console.error('❌ error:', error);
 
-            socket.emit(
-              'error',
-              {
-                message:
-                  'Audio processing failed',
-              },
-            )
-          } finally {
-            try {
-              fs.unlinkSync(filePath)
-            } catch {}
-          }
-        },
-      )
-    },
-  )
+        socket.emit('error', {
+          message: 'Audio processing failed',
+        });
+      } finally {
+        try {
+          fs.unlinkSync(filePath);
+        } catch {
+          console.error('❌ error removing file:', filePath);
+        }
+      }
+    });
+  });
 }

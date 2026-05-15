@@ -8,6 +8,8 @@ from './hooks/useRealtimeMic'
 import { speak }
 from './utils/tts'
 
+import Mirror from './components/Mirror'
+
 interface Response {
   type:
     | 'transcript'
@@ -168,31 +170,34 @@ export default function App() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center">
-      <div className="text-center">
-        <div
-          className={`w-40 h-40 rounded-full flex items-center justify-center text-6xl transition-all duration-300 ${
-            isSpeaking
-              ? 'bg-green-500 scale-110'
+    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 gap-8">
+      {/* Mirror Component */}
+      <div className="w-full h-screen max-h-screen flex items-center justify-center">
+        <Mirror
+          isListening={isListening}
+          isSpeaking={isSpeaking}
+        />
+      </div>
+
+      {/* Bottom Info Bar */}
+      <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-md border-t border-gray-700 p-6">
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="text-2xl font-bold">
+            Smart Mirror
+          </h1>
+          <p className="text-sm text-gray-400">
+            {isSpeaking
+              ? '🔊 Speaking...'
               : isListening
-                ? 'bg-blue-500 animate-pulse'
-                : 'bg-gray-600'
-          }`}
-        >
-          🎤
+                ? '🎤 Listening...'
+                : '⏸️ Ready'}
+          </p>
+          <p className="text-xs text-gray-500 mt-2">
+            {isConnected
+              ? '✓ Connected'
+              : '✗ Disconnected'}
+          </p>
         </div>
-
-        <h1 className="text-4xl font-bold mt-8">
-          Smart Mirror
-        </h1>
-
-        <p className="text-gray-400 mt-4">
-          {isSpeaking
-            ? 'Listening to user'
-            : isListening
-              ? 'Waiting for speech'
-              : 'Inactive'}
-        </p>
       </div>
     </div>
   )

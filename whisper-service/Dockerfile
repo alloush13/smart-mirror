@@ -1,11 +1,5 @@
 FROM python:slim
 
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app/src
 
 COPY requirements.txt /app/requirements.txt
