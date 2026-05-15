@@ -1,123 +1,141 @@
-#!/usr/bin/env python3
-"""
-Node.js compatible model inference API
-يمكن Node.js من استدعاء النموذج عبر هذا الـ API
-"""
-import json
-import sys
 import base64
+import io
 import os
-from io import BytesIO
+from typing import Any
 
-try:
-    from ultralytics import YOLO
-    from PIL import Image
-    
-    # Load model once
-    model = YOLO("storage/model/best.pt")
-    MODEL_CONFIDENCE = float(os.getenv("MODEL_CONFIDENCE", "0.01"))
-    MODEL_IOU = float(os.getenv("MODEL_IOU", "0.7"))
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from PIL import Image
+from ultralytics import YOLO
 
-    def run_inference(image):
-        """Run model inference and normalize detections"""
-        results = model(image, conf=MODEL_CONFIDENCE, iou=MODEL_IOU, verbose=False)
+app = FastAPI()
 
-        detections = []
-        for result in results:
-            if hasattr(result, 'boxes') and result.boxes is not None:
-                for box in result.boxes:
-                    x, y, w, h = box.xywh[0]
-                    cls_id = int(box.cls[0]) if len(box.cls) > 0 else 0
-                    detections.append({
-                        "x": float(x),
-                        "y": float(y),
-                        "width": float(w),
-                        "height": float(h),
-                        "confidence": float(box.conf[0]),
-                        "class": cls_id,
-                        "class_name": model.names.get(cls_id, "unknown") if hasattr(model, 'names') else "unknown"
-                    })
+MODEL_PATH = os.getenv("MODEL_PATH", "storage/model/best.pt")
+DEFAULT_CONFIDENCE = float(os.getenv("MODEL_CONFIDENCE", "0.01"))
+DEFAULT_IOU = float(os.getenv("MODEL_IOU", "0.7"))
 
-        return {"success": True, "detections": detections, "count": len(detections)}
-    
-    def predict(image_base64):
-        """تشغيل الكشف عن الأجسام وإرجاع النتائج"""
-        try:
-            # Decode base64 image
-            image_data = base64.b64decode(image_base64)
-            image = Image.open(BytesIO(image_data))
-            return run_inference(image)
-        
-        except Exception as e:
-            return {"success": False, "error": str(e), "detections": []}
+model = YOLO(MODEL_PATH)
 
-    def predict_from_path(image_path):
-        """Run detection from an image path"""
-        try:
-            image = Image.open(image_path)
-            return run_inference(image)
-        except Exception as e:
-            return {"success": False, "error": str(e), "detections": []}
-    
-    if __name__ == "__main__":
-        # Support two modes:
-        # 1) One-shot: pass image path as argv[1] or provide base64 on stdin.
-        # 2) Persistent worker mode: run with `--persistent` and then send JSON lines
-        #    to stdin like {"id":"uuid","image":"<base64>","conf":0.01} and
-        #    receive JSON line responses per request.
-        persistent = '--persistent' in sys.argv
 
-        if persistent:
-            # Line-based JSON protocol for persistent worker
-            try:
-                for raw in sys.stdin:
-                    raw = raw.strip()
-                    if not raw:
-                        continue
-                    try:
-                        req = json.loads(raw)
-                        req_id = req.get('id')
-                        img_b64 = req.get('image')
-                        conf = float(req.get('conf', MODEL_CONFIDENCE))
-                        iou = float(req.get('iou', MODEL_IOU))
+def _extract_image_from_payload(payload: dict[str, Any]) -> Image.Image:
+    image_b64 = payload.get("image_base64") or payload.get("imageBase64")
 
-                        # Temporarily override model params for this request
-                        prev_conf, prev_iou = MODEL_CONFIDENCE, MODEL_IOU
-                        try:
-                            MODEL_CONFIDENCE = conf
-                            MODEL_IOU = iou
-                            res = predict(img_b64)
-                        finally:
-                            MODEL_CONFIDENCE, MODEL_IOU = prev_conf, prev_iou
+    if not image_b64 or not isinstance(image_b64, str):
+        raise ValueError("JSON body must include image_base64")
 
-                        # attach id and print one JSON line
-                        if isinstance(res, dict):
-                            res['id'] = req_id
-                        else:
-                            res = { 'success': False, 'error': 'Invalid result', 'id': req_id }
-                        sys.stdout.write(json.dumps(res, ensure_ascii=False) + '\n')
-                        sys.stdout.flush()
-                    except Exception as re:
-                        err = { 'success': False, 'error': str(re), 'id': req.get('id') if isinstance(req, dict) else None }
-                        sys.stdout.write(json.dumps(err, ensure_ascii=False) + '\n')
-                        sys.stdout.flush()
-            except Exception as e:
-                print(json.dumps({"success": False, "error": str(e)}))
+    if "," in image_b64 and image_b64.strip().startswith("data:"):
+        image_b64 = image_b64.split(",", 1)[1]
+
+    try:
+        image_bytes = base64.b64decode(image_b64)
+    except Exception as exc:
+        raise ValueError("Invalid base64 image payload") from exc
+
+    return Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+
+def _normalize_detections(results):
+    detections = []
+
+    for result in results:
+        if not hasattr(result, "boxes") or result.boxes is None:
+            continue
+
+        for box in result.boxes:
+            x, y, w, h = box.xywh[0]
+            cls_id = int(box.cls[0]) if len(box.cls) > 0 else 0
+            detections.append({
+                "x": float(x),
+                "y": float(y),
+                "width": float(w),
+                "height": float(h),
+                "confidence": float(box.conf[0]),
+                "class": cls_id,
+                "class_name": model.names.get(cls_id, "unknown")
+                if hasattr(model, "names")
+                else "unknown",
+            })
+
+    return detections
+
+
+def _parse_float_arg(payload: dict[str, Any], name: str, default_value: float) -> float:
+    raw_value = payload.get(name)
+
+    if raw_value is None:
+        return default_value
+
+    try:
+        return float(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a number") from exc
+
+
+@app.get("/health")
+async def health_check():
+    return {
+        "success": True,
+        "status": "ok",
+        "model_path": MODEL_PATH,
+    }
+
+
+@app.post("/analyze")
+async def analyze_skin(request: Request):
+    try:
+        content_type = request.headers.get("content-type", "")
+
+        if "application/json" in content_type:
+            payload = await request.json()
+            if not isinstance(payload, dict):
+                raise ValueError("JSON body must be an object")
+            image = _extract_image_from_payload(payload)
         else:
-            # If image path is passed by Node.js, use it.
-            # Otherwise fallback to reading base64 from stdin.
-            if len(sys.argv) > 1 and sys.argv[1].strip():
-                result = predict_from_path(sys.argv[1].strip())
-            else:
-                image_b64 = sys.stdin.read().strip()
-                if not image_b64:
-                    result = {"success": False, "error": "No image input provided", "detections": []}
-                else:
-                    result = predict(image_b64)
+            form = await request.form()
+            payload = dict(form)
 
-            print(json.dumps(result))
-        
-except ImportError as e:
-    print(json.dumps({"success": False, "error": f"Missing dependency: {e}"}))
-except Exception as e:
-    print(json.dumps({"success": False, "error": str(e)}))
+            uploaded_file = form.get("file")
+            if uploaded_file is not None:
+                image_bytes = await uploaded_file.read()
+                image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            else:
+                image = _extract_image_from_payload(payload)
+
+        conf = _parse_float_arg(payload, "conf", DEFAULT_CONFIDENCE)
+        iou = _parse_float_arg(payload, "iou", DEFAULT_IOU)
+
+        results = model(image, conf=conf, iou=iou, verbose=False)
+        detections = _normalize_detections(results)
+
+        return {
+            "success": True,
+            "detections": detections,
+            "count": len(detections),
+        }
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": str(exc),
+                "detections": [],
+                "count": 0,
+            },
+        )
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": str(exc),
+                "detections": [],
+                "count": 0,
+            },
+        )
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

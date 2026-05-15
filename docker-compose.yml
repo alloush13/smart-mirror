@@ -1,7 +1,7 @@
 services:
   server:
     build:
-      context: .
+      context: ./server
       dockerfile: Dockerfile
     container_name: smart_mirror_server
     restart: unless-stopped
@@ -9,12 +9,10 @@ services:
       NODE_ENV: production
       PORT: 3000
       CLIENT_ORIGIN: http://localhost:5173
+      SKIN_ANALYSIS_URL: http://skin-analysis-service:8000
       # GEMINI_API_KEY: ${GEMINI_API_KEY}
     ports:
       - "3000:3000"
-    volumes:
-      - ./server:/app/server
-      - /app/server/node_modules
   client:
     build:
       context: ./client
