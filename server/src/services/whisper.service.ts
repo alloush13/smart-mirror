@@ -10,18 +10,29 @@ export class WhisperService {
       'audio.webm',
     )
 
-    const res = await fetch(
-      'http://localhost:8000/transcribe',
-      {
-        method: 'POST',
-        body: form,
-      },
-    )
+    const whisperUrl =
+      process.env.WHISPER_URL ??
+      'http://localhost:8000/transcribe'
 
-    const data = await res.json()
+    const res = await fetch(whisperUrl, {
+      method: 'POST',
+      body: form,
+    })
 
     if (!res.ok) {
-      throw new Error(data.error || 'whisper failed')
+      const errorBody = await res.text()
+
+      throw new Error(
+        `whisper failed (${res.status} ${res.statusText}): ${errorBody}`,
+      )
+    }
+
+    const data = (await res.json()) as {
+      text?: unknown
+    }
+
+    if (typeof data.text !== 'string') {
+      throw new Error('whisper response missing text')
     }
 
     return data.text

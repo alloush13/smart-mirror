@@ -1,43 +1,48 @@
-import { useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 
-import { socket } from '../socket'
+import { createAudioStream } from '../services/audio/stream'
+import { createRecorder } from '../services/audio/mediaRecorder'
+import { createAudioAnalyser } from '../services/audio/audioContext'
+import {
+  calculateRMS,
+  isSpeech,
+} from '../services/audio/vad'
+import { sendAudio } from '../sockets/audioSocket'
 
-const SILENCE_THRESHOLD = 0.02
-
+const THRESHOLD = 0.02
 const SILENCE_DELAY = 1200
 
-const MIN_SPEECH_DURATION = 2000
-
-const MIN_BLOB_SIZE = 10000
-
-export function useRealtimeMic() {
-  const mediaRecorderRef =
+export function useRealtimeMic(enabled = true) {
+  const runningRef = useRef(false)
+  const rafRef = useRef<number | null>(null)
+  const recorderRef =
     useRef<MediaRecorder | null>(null)
 
-  const audioContextRef =
-    useRef<AudioContext | null>(null)
+  const streamRef =
+    useRef<MediaStream | null>(null)
 
   const analyserRef =
     useRef<AnalyserNode | null>(null)
 
+  const audioContextRef =
+    useRef<AudioContext | null>(null)
+
   const chunksRef =
     useRef<Blob[]>([])
 
-  const silenceTimeoutRef =
-    useRef<number | null>(null)
-
-  const animationFrameRef =
+  const silenceTimer =
     useRef<number | null>(null)
 
   const isSpeakingRef =
     useRef(false)
 
-  // 🤖 assistant speaking
   const isAssistantSpeakingRef =
     useRef(false)
-
-  const speechStartedAtRef =
-    useRef(0)
 
   const [isListening, setIsListening] =
     useState(false)
@@ -45,291 +50,146 @@ export function useRealtimeMic() {
   const [isSpeaking, setIsSpeaking] =
     useState(false)
 
-  useEffect(() => {
-    void setup()
+const cleanup = useCallback(() => {
+  runningRef.current = false
 
-    return () => {
-      cleanup()
+  if (rafRef.current) {
+    cancelAnimationFrame(rafRef.current)
+    rafRef.current = null
+  }
+
+  if (silenceTimer.current) {
+    clearTimeout(silenceTimer.current)
+    silenceTimer.current = null
+  }
+
+  recorderRef.current?.stop()
+
+  streamRef.current?.getTracks().forEach((t) => t.stop())
+
+  audioContextRef.current?.close()
+
+  recorderRef.current = null
+  streamRef.current = null
+  analyserRef.current = null
+  audioContextRef.current = null
+
+  isSpeakingRef.current = false
+  isAssistantSpeakingRef.current = false
+
+  chunksRef.current = []
+}, [])
+
+const start = useCallback(async () => {
+  await cleanup()
+
+  const stream = await createAudioStream()
+  streamRef.current = stream
+
+  const recorder = createRecorder(stream, (chunk) => {
+    chunksRef.current.push(chunk)
+  })
+
+  recorderRef.current = recorder
+  recorder.start()
+
+  const { audioContext, analyser } = createAudioAnalyser(stream)
+
+  audioContextRef.current = audioContext
+  analyserRef.current = analyser
+
+  setIsListening(true)
+
+  runningRef.current = true
+  detect()
+}, [cleanup])
+
+
+const detect = useCallback(() => {
+  const analyser = analyserRef.current
+  if (!analyser) return
+
+  const data = new Uint8Array(analyser.fftSize)
+
+  const loop = () => {
+    if (!runningRef.current) return
+
+    if (isAssistantSpeakingRef.current) {
+      rafRef.current = requestAnimationFrame(loop)
+      return
     }
-  }, [])
 
-  const setup = async () => {
-    try {
-      const stream =
-        await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        })
+    analyser.getByteTimeDomainData(data)
 
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm',
-      })
+    const rms = calculateRMS(data)
 
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data)
-        }
+    if (isSpeech(rms, THRESHOLD)) {
+      isSpeakingRef.current = true
+      setIsSpeaking(true)
+
+      if (silenceTimer.current) {
+        clearTimeout(silenceTimer.current)
+        silenceTimer.current = null
       }
+    } else {
+      if (isSpeakingRef.current && !silenceTimer.current) {
+        silenceTimer.current = window.setTimeout(async () => {
+          if (!runningRef.current) return
 
-      recorder.onstop = async () => {
-        try {
+          isSpeakingRef.current = false
+          setIsSpeaking(false)
+
           const blob = new Blob(chunksRef.current, {
             type: 'audio/webm',
           })
 
           chunksRef.current = []
 
-          const speechDuration =
-            Date.now() -
-            speechStartedAtRef.current
+          await sendAudio(blob)
 
-          console.log(
-            '🗣 speech duration:',
-            speechDuration,
-          )
+          recorderRef.current?.stop()
 
-          console.log(
-            '📦 blob size:',
-            blob.size,
-          )
-
-          // ❌ ignore short audio
-          if (
-            speechDuration <
-              MIN_SPEECH_DURATION ||
-            blob.size < MIN_BLOB_SIZE
-          ) {
-            console.log(
-              '⚠️ ignored short speech',
+          // إعادة تشغيل آمنة
+          if (runningRef.current && streamRef.current) {
+            const newRecorder = createRecorder(
+              streamRef.current,
+              (chunk) => chunksRef.current.push(chunk)
             )
 
-            recorder.start()
-
-            return
+            recorderRef.current = newRecorder
+            newRecorder.start()
           }
-
-          const arrayBuffer =
-            await blob.arrayBuffer()
-
-          socket.emit(
-            'audio-final',
-            arrayBuffer,
-          )
-
-          console.log('📡 audio sent')
-
-          recorder.start()
-        } catch (error) {
-          console.error(
-            '❌ recorder error:',
-            error,
-          )
-
-          try {
-            recorder.start()
-          } catch {}
-        }
+        }, SILENCE_DELAY)
       }
-
-      recorder.start()
-
-      mediaRecorderRef.current = recorder
-
-      // 🔊 AudioContext
-      const audioContext =
-        new AudioContext()
-
-      const source =
-        audioContext.createMediaStreamSource(
-          stream,
-        )
-
-      const analyser =
-        audioContext.createAnalyser()
-
-      analyser.fftSize = 2048
-
-      source.connect(analyser)
-
-      analyserRef.current = analyser
-
-      audioContextRef.current =
-        audioContext
-
-      setIsListening(true)
-
-      detectVoice()
-    } catch (error) {
-      console.error(
-        '❌ microphone setup failed:',
-        error,
-      )
-    }
-  }
-
-  const detectVoice = () => {
-    const analyser =
-      analyserRef.current
-
-    if (!analyser) {
-      return
     }
 
-    const data =
-      new Uint8Array(
-        analyser.fftSize,
-      )
-
-    const check = () => {
-      // 🛑 pause listening while assistant speaking
-      if (
-        isAssistantSpeakingRef.current
-      ) {
-        animationFrameRef.current =
-          requestAnimationFrame(check)
-
-        return
-      }
-
-      analyser.getByteTimeDomainData(data)
-
-      let sum = 0
-
-      for (
-        let i = 0;
-        i < data.length;
-        i++
-      ) {
-        const normalized =
-          (data[i] - 128) / 128
-
-        sum +=
-          normalized * normalized
-      }
-
-      const rms = Math.sqrt(
-        sum / data.length,
-      )
-
-      // 🗣 user speaking
-      if (rms > SILENCE_THRESHOLD) {
-        if (!isSpeakingRef.current) {
-          console.log(
-            '🟢 speech started',
-          )
-
-          speechStartedAtRef.current =
-            Date.now()
-        }
-
-        isSpeakingRef.current = true
-
-        setIsSpeaking(true)
-
-        if (
-          silenceTimeoutRef.current
-        ) {
-          clearTimeout(
-            silenceTimeoutRef.current,
-          )
-
-          silenceTimeoutRef.current =
-            null
-        }
-      }
-
-      // 🤫 silence
-      else {
-        if (
-          isSpeakingRef.current &&
-          !silenceTimeoutRef.current
-        ) {
-          silenceTimeoutRef.current =
-            window.setTimeout(() => {
-              console.log(
-                '🔴 speech ended',
-              )
-
-              isSpeakingRef.current =
-                false
-
-              setIsSpeaking(false)
-
-              if (
-                mediaRecorderRef.current &&
-                mediaRecorderRef.current
-                  .state ===
-                  'recording'
-              ) {
-                mediaRecorderRef.current.stop()
-              }
-            }, SILENCE_DELAY)
-        }
-      }
-
-      animationFrameRef.current =
-        requestAnimationFrame(check)
-    }
-
-    check()
+    rafRef.current = requestAnimationFrame(loop)
   }
 
-  // 🛑 pause mic
-  const pauseListening = () => {
-    console.log(
-      '⏸ listening paused',
-    )
+  loop()
+}, [])
 
-    isAssistantSpeakingRef.current =
-      true
-  }
+  // ⏸ pause mic (AI speaking)
+  const pauseListening = useCallback(() => {
+    isAssistantSpeakingRef.current = true
+  }, [])
 
-  // ▶️ resume mic
-  const resumeListening = () => {
-    console.log(
-      '▶️ listening resumed',
-    )
-
-    isAssistantSpeakingRef.current =
-      false
+  // ▶ resume mic
+  const resumeListening = useCallback(() => {
+    isAssistantSpeakingRef.current = false
     chunksRef.current = []
-  }
+  }, [])
 
-  const cleanup = () => {
-    if (
-      silenceTimeoutRef.current
-    ) {
-      clearTimeout(
-        silenceTimeoutRef.current,
-      )
-    }
+  useEffect(() => {
+    if (enabled) start()
+    else cleanup()
 
-    if (
-      animationFrameRef.current
-    ) {
-      cancelAnimationFrame(
-        animationFrameRef.current,
-      )
-    }
-
-    mediaRecorderRef.current?.stop()
-
-    mediaRecorderRef.current?.stream
-      .getTracks()
-      .forEach((track) => {
-        track.stop()
-      })
-
-    audioContextRef.current?.close()
-  }
+    return cleanup
+  }, [enabled, start, cleanup])
 
   return {
     isListening,
     isSpeaking,
-
     pauseListening,
     resumeListening,
   }

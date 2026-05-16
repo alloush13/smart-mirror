@@ -1,36 +1,38 @@
-# Use the official Node.js image as the base image
+# Build stage - Build the React Vite application
 FROM node:22-alpine AS builder
 
-# Set the working directory inside the container
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy package.json and package-lock.json to the working directory
+# Copy package files
 COPY package*.json ./
 
-# Install the application dependencies
+# Install dependencies
 RUN npm install
 
-# Copy the rest of the application files
+# Copy application source code
 COPY . .
 
-# Build the NestJS application
+# Build the Vite application
 RUN npm run build
 
 
-FROM node:22-alpine3.21
+# Production stage - Serve with Node.js
+FROM node:22-alpine
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --omit=dev
+# Install serve package to serve static files
+RUN npm install -g serve
 
-COPY --from=builder /usr/src/app/dist ./dist
+# Copy the built application from builder stage
+COPY --from=builder /app/dist ./dist
 
+# Create non-root user
 RUN addgroup -S app && adduser -S app -G app
 USER app
 
-# Expose the application port
-EXPOSE 3000
+# Expose port 3000
+EXPOSE 5173
 
-# Command to run the application
-CMD ["node", "dist/main"]
+# Start the application
+CMD ["serve", "-s", "dist", "-l", "5173"]

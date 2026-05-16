@@ -9,8 +9,8 @@ services:
       NODE_ENV: production
       PORT: 3000
       CLIENT_ORIGIN: http://localhost:5173
+      WHISPER_URL: http://whisper-service:8000/transcribe
       SKIN_ANALYSIS_URL: http://skin-analysis-service:8000
-      # GEMINI_API_KEY: ${GEMINI_API_KEY}
     ports:
       - "3000:3000"
   client:
@@ -33,4 +33,11 @@ services:
     container_name: skin-analysis-service
     ports:
       - '8001:8000'
+    restart: unless-stopped
+  audio-processing-service:
+    build:
+      context: ./audio-processing-service
+    container_name: audio-processing-service
+    ports:
+      - '8002:8000'
     restart: unless-stopped
