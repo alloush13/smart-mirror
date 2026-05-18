@@ -16,4 +16,4 @@ find "$DIR" \
     echo "# FILE: $file"
     cat "$file"
     echo ""
-done > kora-network.txt
+done > scan.txt
