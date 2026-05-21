@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package voice;
+
+service WhisperService {
+  // Streaming audio in → streaming text out
+  rpc StreamTranscribe(stream AudioChunk) returns (stream Transcript);
+}
+
+message AudioChunk {
+  bytes data = 1;
+  int32 sample_rate = 2;
+  int32 sequence = 3;
+}
+
+message Transcript {
+  string text = 1;
+  bool is_final = 2;
+  float confidence = 3;
+}

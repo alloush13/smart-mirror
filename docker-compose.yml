@@ -22,14 +22,14 @@ services:
     restart: unless-stopped
   whisper-service:
     build:
-      context: ./whisper-service
+      context: ./services/whisper-service
     container_name: whisper-service
     ports:
       - '8000:8000'
     restart: unless-stopped
   skin-analysis-service:
     build:
-      context: ./skin-analysis-service
+      context: ./services/skin-analysis-service
     container_name: skin-analysis-service
     ports:
       - '8001:8000'
