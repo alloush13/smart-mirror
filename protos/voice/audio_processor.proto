@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package audio;
+
+service AudioProcessingService {
+  rpc ProcessAudio(AudioRequest)
+      returns (AudioResponse);
+}
+
+message AudioRequest {
+  bytes audio = 1;
+
+  string format = 2;
+}
+
+message AudioResponse {
+  bytes cleaned_audio = 1;
+
+  float speech_ratio = 2;
+
+  bool is_speech = 3;
+
+  int32 sample_rate = 4;
+}

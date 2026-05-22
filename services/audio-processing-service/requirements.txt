@@ -1,7 +1,10 @@
-fastapi
-uvicorn
-python-multipart
 numpy
 scipy
 soundfile
-webrtcvad
+
+grpcio
+grpcio-tools
+grpcio-health-checking
+
+torch
+torchaudio

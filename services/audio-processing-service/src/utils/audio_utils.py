@@ -43,7 +43,7 @@ def convert_to_wav(input_path: str) -> str:
             ],
             check=True,
             capture_output=True,
-            timeout=30,
+            timeout=60,
         )
 
     except subprocess.CalledProcessError as e:

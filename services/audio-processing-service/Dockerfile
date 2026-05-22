@@ -1,4 +1,4 @@
-FROM python:slim
+FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y \
     ffmpeg \
@@ -8,20 +8,23 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m appuser
+WORKDIR /app
 
-WORKDIR /app/src
+ENV PYTHONPATH=/app
 
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY requirements.txt .
 
-COPY src/ /app/src/
+RUN pip install --no-cache-dir -r requirements.txt
 
+COPY proto/ ./proto/
+COPY src/ ./src/
 
-RUN chown -R appuser:appuser /app
+RUN python -m grpc_tools.protoc \
+    -I=./proto \
+    --python_out=. \
+    --grpc_python_out=. \
+    ./proto/audio_processor.proto
 
-USER appuser
+EXPOSE 50052
 
-EXPOSE 8000
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "src/server.py"]
