@@ -1,4 +1,5 @@
 faster-whisper
 grpcio
 grpcio-tools
+grpcio-health-checking
 protobuf

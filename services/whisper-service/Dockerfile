@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+ENV PYTHONPATH=/app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -18,6 +20,6 @@ RUN python -m grpc_tools.protoc \
     --grpc_python_out=./src \
     ./proto/whisper.proto
 
-WORKDIR /app/src
+EXPOSE 50051
 
-CMD ["python", "server.py"]
+CMD ["python", "src/server.py"]

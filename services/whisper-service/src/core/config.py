@@ -1,0 +1,3 @@
+MODEL_NAME = "small"
+
+MAX_AUDIO_SIZE = 10 * 1024 * 1024
