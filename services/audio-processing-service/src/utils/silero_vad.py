@@ -12,10 +12,11 @@ class SileroVAD:
         self.get_speech_timestamps = self.utils[0]
 
     def get_segments(self, audio: np.ndarray, sample_rate: int):
-        audio = audio.astype("float32")  # مهم جدًا
+        audio = audio.astype("float32")
 
         return self.get_speech_timestamps(
             audio,
             self.model,
-            sampling_rate=sample_rate
+            sampling_rate=sample_rate,
+            return_seconds=False
         )

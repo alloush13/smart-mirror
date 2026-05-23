@@ -5,7 +5,6 @@ import { Server } from 'socket.io';
 
 import { SocketManager } from './sockets/socket-manager';
 
-
 const app = express();
 
 app.use(cors());
@@ -19,10 +18,7 @@ const io = new Server(server, {
   },
 });
 
-const socketManager = new SocketManager(io);
-
-socketManager.register();
-
+new SocketManager(io).register();
 
 const PORT = process.env.PORT || 3000;
 

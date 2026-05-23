@@ -1,16 +1,17 @@
 import numpy as np
 import scipy.signal as signal
-import collections
+import logging
+import tempfile
+import soundfile as sf
 
 from src.utils.silero_vad import SileroVAD
 
+logger = logging.getLogger("audio-processor")
+
 
 class AudioProcessor:
-    def __init__(
-        self,
-        sample_rate: int = 16000,
-        noise_reduce_strength: float = 0.7,
-    ):
+
+    def __init__(self, sample_rate: int = 16000, noise_reduce_strength: float = 0.7):
         self.sample_rate = sample_rate
         self.noise_reduce_strength = noise_reduce_strength
         self.vad = SileroVAD()
@@ -30,7 +31,6 @@ class AudioProcessor:
         threshold = noise_profile[:, None] * self.noise_reduce_strength
 
         mask = magnitude > threshold
-
         cleaned = magnitude * np.where(mask, 1.0, 0.15)
 
         _, recovered = signal.istft(cleaned * np.exp(1j * phase))
@@ -38,36 +38,53 @@ class AudioProcessor:
         return recovered[: len(audio)].astype(np.float32)
 
     def process(self, audio: np.ndarray):
-        if len(audio) == 0:
-            raise ValueError("empty audio")
 
-        audio = audio.astype(np.float32)
+        try:
+            if audio is None or len(audio) == 0:
+                raise ValueError("empty audio")
 
-        max_val = np.max(np.abs(audio))
-        if max_val > 0:
-            audio = audio / max_val
+            audio = audio.astype(np.float32)
 
-        # حفظ مؤقت لـ Silero
-        import tempfile
-        import soundfile as sf
+            max_val = np.max(np.abs(audio))
+            if max_val > 0:
+                audio = audio / max_val
 
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-        sf.write(tmp.name, audio, self.sample_rate)
+            # VAD SAFE MODE
+            segments = []
 
-        segments = self.vad.get_segments(audio, self.sample_rate)
+            try:
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+                sf.write(tmp.name, audio, self.sample_rate)
 
-        speech_ratio = 0.0
+                segments = self.vad.get_segments(audio, self.sample_rate)
 
-        if segments:
-            total_speech = sum(
-                (s["end"] - s["start"]) for s in segments
-            )
-            speech_ratio = total_speech / len(audio)
+            except Exception as vad_error:
+                logger.warning("VAD failed safely: %s", vad_error)
+                segments = []
 
-        cleaned = self.reduce_noise(audio)
+            speech_ratio = 0.0
 
-        return {
-            "cleaned_audio": cleaned,
-            "speech_ratio": float(speech_ratio),
-            "is_speech": speech_ratio > 0.2,
-        }
+            if segments:
+                total_speech = sum(
+                    (s.get("end", 0) - s.get("start", 0))
+                    for s in segments
+                )
+                speech_ratio = min(total_speech / max(len(audio), 1), 1.0)
+
+            cleaned = self.reduce_noise(audio)
+
+            return {
+                "cleaned_audio": cleaned,
+                "speech_ratio": float(speech_ratio),
+                "is_speech": speech_ratio > 0.2,
+            }
+
+        except Exception as e:
+            logger.exception("processor crash recovered")
+
+            return {
+                "cleaned_audio": audio if audio is not None else np.array([]),
+                "speech_ratio": 0.0,
+                "is_speech": False,
+                "error": str(e),
+            }

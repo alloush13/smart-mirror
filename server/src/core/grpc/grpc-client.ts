@@ -1,11 +1,11 @@
 import * as grpc from '@grpc/grpc-js';
 
-export function createGrpcClient<T>(
-  ClientConstructor: any,
-  address: string,
+export function createClient<T>(
+  Client: any,
+  url: string,
 ): T {
-  return new ClientConstructor(
-    address,
+  return new Client(
+    url,
     grpc.credentials.createInsecure(),
   );
 }

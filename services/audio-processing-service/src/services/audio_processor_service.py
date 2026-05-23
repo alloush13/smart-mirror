@@ -4,25 +4,28 @@ import time
 
 from src.processing.processor import AudioProcessor
 from src.utils.audio_utils import (
-    convert_to_wav,
     load_audio,
     save_upload_to_temp,
     save_wav,
 )
 
 from src.core.config import SAMPLE_RATE
+from src.services.audio_converter_service import AudioConverterService
 
 
 logger = logging.getLogger("audio-processor-service")
 
 
 class AudioProcessorService:
+
     def __init__(self):
         logger.info("AudioProcessorService initialized")
+
         self.processor = AudioProcessor()
-        logger.info("AudioProcessor loaded")
+        self.converter = AudioConverterService()
 
     def process_audio(self, audio_bytes: bytes, suffix: str = ".webm"):
+
         start_time = time.time()
 
         input_path = None
@@ -30,75 +33,48 @@ class AudioProcessorService:
         output_path = None
 
         try:
-            logger.info("Received audio request | size=%d bytes | suffix=%s",
-                        len(audio_bytes), suffix)
 
-            # Step 1: Save upload
-            t0 = time.time()
+            if not audio_bytes:
+                raise ValueError("empty audio request")
+
+            logger.info("Incoming audio | size=%d | suffix=%s", len(audio_bytes), suffix)
+
+            # 1) Save upload
             input_path = save_upload_to_temp(audio_bytes, suffix=suffix)
-            logger.info("Saved temp file: %s (%.3fs)", input_path, time.time() - t0)
 
-            # Step 2: Convert to wav
-            t0 = time.time()
-            logger.info("Converting to WAV using ffmpeg...")
+            # 2) format detection + validation
+            suffix = self.converter.detect_format(suffix)
 
-            wav_path = convert_to_wav(input_path)
+            if not self.converter.is_supported(suffix):
+                logger.warning("unsupported format fallback: %s", suffix)
+                suffix = ".webm"
 
-            logger.info("WAV created: %s (%.3fs)", wav_path, time.time() - t0)
+            # 3) convert
+            wav_path = self.converter.convert_to_wav(input_path, target_sr=SAMPLE_RATE)
 
-            # Step 3: Load audio
-            t0 = time.time()
-            logger.info("Loading audio file...")
-
+            # 4) load audio
             audio, sr = load_audio(wav_path)
 
-            logger.info(
-                "Audio loaded | samples=%d | sample_rate=%d (%.3fs)",
-                len(audio),
-                sr,
-                time.time() - t0,
-            )
-
             if len(audio) == 0:
-                raise RuntimeError("empty audio loaded")
+                raise RuntimeError("empty decoded audio")
 
-            # Step 4: validate sample rate
             if sr != SAMPLE_RATE:
-                raise RuntimeError(
-                    f"invalid sample rate: {sr}, expected {SAMPLE_RATE}"
-                )
+                logger.warning("sample rate mismatch fixed by ffmpeg")
 
-            # Step 5: process audio
-            t0 = time.time()
-            logger.info("Processing audio (VAD + noise reduction)...")
-
+            # 5) process
             result = self.processor.process(audio)
 
-            logger.info(
-                "Processing done | speech_ratio=%.3f | is_speech=%s (%.3fs)",
-                result["speech_ratio"],
-                result["is_speech"],
-                time.time() - t0,
-            )
+            # 6) save output
+            output_path = save_wav(result["cleaned_audio"], sample_rate=sr)
 
-            # Step 6: save output
-            t0 = time.time()
-            logger.info("Saving cleaned audio...")
-
-            output_path = save_wav(
-                result["cleaned_audio"],
-                sample_rate=sr,
-            )
-
-            logger.info("Output saved: %s (%.3fs)", output_path, time.time() - t0)
-
-            # Step 7: read result
             with open(output_path, "rb") as f:
                 cleaned_audio = f.read()
 
             logger.info(
-                "Request completed successfully in %.3fs",
-                time.time() - start_time,
+                "DONE | speech_ratio=%.3f | is_speech=%s | time=%.2fs",
+                result["speech_ratio"],
+                result["is_speech"],
+                time.time() - start_time
             )
 
             return {
@@ -108,12 +84,23 @@ class AudioProcessorService:
                 "sample_rate": sr,
             }
 
+        except Exception as e:
+            logger.exception("Audio service failed")
+
+            # fallback safe response
+            return {
+                "cleaned_audio": b"",
+                "speech_ratio": 0.0,
+                "is_speech": False,
+                "sample_rate": SAMPLE_RATE,
+                "error": str(e),
+            }
+
         finally:
-            # cleanup
-            for path in [input_path, wav_path, output_path]:
+            for p in [input_path, wav_path, output_path]:
                 try:
-                    if path and os.path.exists(path):
-                        os.remove(path)
-                        logger.info("Cleaned temp file: %s", path)
-                except OSError:
+                    if p and os.path.exists(p):
+                        os.remove(p)
+                        logger.info("Cleaned temp: %s", p)
+                except Exception:
                     pass

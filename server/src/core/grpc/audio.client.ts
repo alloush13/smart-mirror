@@ -1,10 +1,12 @@
-import { createGrpcClient } from './grpc-client';
+import { loadProto } from './loader';
+import { createClient } from './grpc-client';
 import { env } from '../../config/env';
 
-// generated proto
-import { AudioProcessingServiceClient } from '../../../proto/voice/audio_processor.proto';
+const proto = loadProto('proto/voice/audio_processor.proto');
 
-export const audioClient = createGrpcClient<AudioProcessingServiceClient>(
-  AudioProcessingServiceClient,
+const AudioService = proto.audio.AudioProcessingService;
+
+export const audioClient = createClient<any>(
+  AudioService,
   env.AUDIO_SERVICE_URL,
 );

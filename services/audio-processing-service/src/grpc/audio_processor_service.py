@@ -11,26 +11,24 @@ from src.core.logger import logger
 class AudioProcessingGrpcService(
     audio_processor_pb2_grpc.AudioProcessingServiceServicer
 ):
+
     def __init__(self):
         self.service = AudioProcessorService()
 
     def ProcessAudio(self, request, context):
+
         try:
             if not request.audio:
-                context.abort(
-                    grpc.StatusCode.INVALID_ARGUMENT,
-                    "audio is required",
-                )
+                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "audio is required")
 
             if len(request.audio) > MAX_AUDIO_SIZE:
-                context.abort(
-                    grpc.StatusCode.INVALID_ARGUMENT,
-                    "audio too large",
-                )
+                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "audio too large")
+
+            suffix = (request.format or ".webm").lower()
 
             result = self.service.process_audio(
                 audio_bytes=request.audio,
-                suffix=request.format or ".webm",
+                suffix=suffix,
             )
 
             return audio_processor_pb2.AudioResponse(
@@ -41,9 +39,14 @@ class AudioProcessingGrpcService(
             )
 
         except Exception as exc:
-            logger.exception("grpc error: %s", exc)
+            logger.exception("grpc fatal error: %s", exc)
 
-            context.abort(
-                grpc.StatusCode.INTERNAL,
-                "audio processing failed",
+            context.set_details(str(exc))
+            context.set_code(grpc.StatusCode.INTERNAL)
+
+            return audio_processor_pb2.AudioResponse(
+                cleaned_audio=b"",
+                speech_ratio=0.0,
+                is_speech=False,
+                sample_rate=16000,
             )
