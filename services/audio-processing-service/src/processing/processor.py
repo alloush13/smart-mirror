@@ -54,7 +54,7 @@ class AudioProcessor:
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
         sf.write(tmp.name, audio, self.sample_rate)
 
-        segments = self.vad.get_segments(tmp.name, self.sample_rate)
+        segments = self.vad.get_segments(audio, self.sample_rate)
 
         speech_ratio = 0.0
 

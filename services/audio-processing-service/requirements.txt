@@ -6,5 +6,5 @@ grpcio
 grpcio-tools
 grpcio-health-checking
 
-torch
-torchaudio
+setuptools
+packaging
