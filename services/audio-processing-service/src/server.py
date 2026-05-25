@@ -4,14 +4,14 @@ import grpc
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 import audio_processor_pb2_grpc
-
-from src.grpc.audio_processor_service import AudioProcessingGrpcService
+from src.grpc.audio_service import AudioProcessingGrpcService
 from src.core.logger import logger
 
 
 def serve():
+
     server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=4),
+        futures.ThreadPoolExecutor(max_workers=6),
         options=[
             ("grpc.max_send_message_length", 50 * 1024 * 1024),
             ("grpc.max_receive_message_length", 50 * 1024 * 1024),
@@ -24,11 +24,7 @@ def serve():
     )
 
     health_servicer = health.HealthServicer()
-
-    health_pb2_grpc.add_HealthServicer_to_server(
-        health_servicer,
-        server,
-    )
+    health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
 
     health_servicer.set(
         "audio.AudioProcessingService",
@@ -39,12 +35,9 @@ def serve():
 
     server.start()
 
-    logger.info("Audio Processing gRPC server running on :50052")
+    logger.info("gRPC server running on :50052")
 
-    try:
-        server.wait_for_termination()
-    except KeyboardInterrupt:
-        server.stop(grace=5)
+    server.wait_for_termination()
 
 
 if __name__ == "__main__":

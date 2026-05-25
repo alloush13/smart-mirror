@@ -1,8 +1,6 @@
 import numpy as np
 import scipy.signal as signal
 import logging
-import tempfile
-import soundfile as sf
 
 from src.utils.silero_vad import SileroVAD
 
@@ -14,6 +12,8 @@ class AudioProcessor:
     def __init__(self, sample_rate: int = 16000, noise_reduce_strength: float = 0.7):
         self.sample_rate = sample_rate
         self.noise_reduce_strength = noise_reduce_strength
+
+        # ✅ RESTORED VAD
         self.vad = SileroVAD()
 
     def build_noise_profile(self, audio: np.ndarray):
@@ -37,54 +37,46 @@ class AudioProcessor:
 
         return recovered[: len(audio)].astype(np.float32)
 
-    def process(self, audio: np.ndarray):
+    # =========================
+    # NEW: VAD LOGIC RESTORED
+    # =========================
+    def compute_speech_ratio(self, audio: np.ndarray) -> float:
 
         try:
-            if audio is None or len(audio) == 0:
-                raise ValueError("empty audio")
+            segments = self.vad.get_segments(audio, self.sample_rate)
 
-            audio = audio.astype(np.float32)
+            if not segments:
+                return 0.0
 
-            max_val = np.max(np.abs(audio))
-            if max_val > 0:
-                audio = audio / max_val
+            total_speech = sum(
+                (s.get("end", 0) - s.get("start", 0))
+                for s in segments
+            )
 
-            # VAD SAFE MODE
-            segments = []
-
-            try:
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-                sf.write(tmp.name, audio, self.sample_rate)
-
-                segments = self.vad.get_segments(audio, self.sample_rate)
-
-            except Exception as vad_error:
-                logger.warning("VAD failed safely: %s", vad_error)
-                segments = []
-
-            speech_ratio = 0.0
-
-            if segments:
-                total_speech = sum(
-                    (s.get("end", 0) - s.get("start", 0))
-                    for s in segments
-                )
-                speech_ratio = min(total_speech / max(len(audio), 1), 1.0)
-
-            cleaned = self.reduce_noise(audio)
-
-            return {
-                "cleaned_audio": cleaned,
-                "speech_ratio": float(speech_ratio),
-                "is_speech": speech_ratio > 0.2,
-            }
+            return min(total_speech / max(len(audio), 1), 1.0)
 
         except Exception as e:
-            logger.exception("processor crash recovered")
+            logger.warning("VAD failed: %s", e)
+            return 0.0
 
-            return {
-                "cleaned_audio": audio if audio is not None else np.array([]),
-                "speech_ratio": 0.0,
-                "is_speech": False,
-                "error": str(e),
-            }
+    def process(self, audio: np.ndarray):
+
+        if audio is None or len(audio) == 0:
+            raise ValueError("empty audio")
+
+        audio = audio.astype(np.float32)
+
+        max_val = np.max(np.abs(audio))
+        if max_val > 0:
+            audio = audio / max_val
+
+        cleaned = self.reduce_noise(audio)
+
+        # ✅ RESTORED REAL VALUE
+        speech_ratio = self.compute_speech_ratio(audio)
+
+        return {
+            "cleaned_audio": cleaned,
+            "speech_ratio": float(speech_ratio),
+            "is_speech": speech_ratio > 0.2,
+        }

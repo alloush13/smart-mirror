@@ -1,75 +1,55 @@
 import { Server, Socket } from 'socket.io';
 import { voiceModule } from '../modules/voice/voice.module';
-import { AudioSession, AudioProcessResult } from '../modules/voice/voice.types'
-import { WhisperTranscript } from '../modules/voice/whisper/whisper.type'
+
 export class SocketManager {
   constructor(private readonly io: Server) {}
-
-  private sessions: Map<string, AudioSession> = new Map();
 
   public register(): void {
     this.io.on('connection', (socket) => {
       console.log('Client connected:', socket.id);
 
-      this.registerVoice(socket);
-
-      socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
-        this.sessions.delete(socket.id);
-      });
-    });
-  }
-
-  private registerVoice(socket: Socket) {
-    socket.on(
-      'audio:chunk',
-      async (data: { audio: Buffer; format?: string; final?: boolean }) => {
+      socket.on('audio:chunk', async (data: { audio: any; format?: string }) => {
         try {
-          if (!this.sessions.has(socket.id)) {
-            this.sessions.set(socket.id, {
-              chunks: [],
-              format: data.format || '.webm',
-              lastUpdate: Date.now(),
-            });
-          }
+          // 1. normalize buffer
+          const audioBuffer = Buffer.isBuffer(data.audio)
+            ? data.audio
+            : Buffer.from(data.audio);
 
-          const session = this.sessions.get(socket.id)!;
+          // 2. process FULL FILE ONLY
+          const result = await voiceModule.orchestrator.process(
+            audioBuffer,
+            data.format || '.webm',
+          );
 
-          session.chunks.push(Buffer.from(data.audio));
-          session.lastUpdate = Date.now();
+          // 3. return audio result
+          socket.emit('audio:result', {
+            cleaned_audio: result.audio.cleaned_audio,
+            speech_ratio: result.audio.speech_ratio,
+            is_speech: result.audio.is_speech,
+            sample_rate: result.audio.sample_rate,
+          });
 
-          if (!data.final) return;
-
-          const fullAudio = Buffer.concat(session.chunks);
-
-          session.chunks = [];
-
-          // 1. Audio processing
-          const audioResult = await voiceModule.orchestrator.processAudio(
-            fullAudio,
-            session.format,
-          ) as AudioProcessResult;
-
-          socket.emit('audio:result', audioResult);
-
-          if (audioResult.is_speech) {
-            const textResult = await voiceModule.whisper.transcribe(fullAudio) as WhisperTranscript;
-
+          // 4. optional transcript
+          if (result.transcript?.text) {
             socket.emit('voice:transcript', {
-              text: textResult.text,
-              confidence: textResult.confidence,
-              language: textResult.language,
+              text: result.transcript.text,
+              confidence: result.transcript.confidence,
+              language: result.transcript.language,
+              is_final: result.transcript.is_final,
             });
           }
-
         } catch (err: any) {
           console.error('Voice error:', err);
 
           socket.emit('audio:error', {
-            message: err.message || 'processing failed',
+            message: err?.message || 'processing failed',
           });
         }
-      },
-    );
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+      });
+    });
   }
 }

@@ -1,14 +1,7 @@
-import { VoiceOrchestrator } from './orchestrator';
-import { WhisperService } from './whisper/whisper.service';
+import { VoiceOrchestrator } from './voice.orchestrator';
 
 class VoiceModule {
-  public readonly orchestrator: VoiceOrchestrator;
-  public readonly whisper: WhisperService;
-
-  constructor() {
-    this.orchestrator = new VoiceOrchestrator();
-    this.whisper = new WhisperService();
-  }
+  public readonly orchestrator = new VoiceOrchestrator();
 }
 
 export const voiceModule = new VoiceModule();

@@ -1,7 +1,8 @@
-import { whisperClient } from '../../../core/grpc/whisper.client';
+import { whisperClient } from './whisper.client';
+import { WhisperTranscript } from './whisper.type';
 
 export class WhisperService {
-  async transcribe(audio: Buffer) {
+  async transcribe(audio: Buffer): Promise<WhisperTranscript> {
     return new Promise((resolve, reject) => {
       whisperClient.StreamTranscribe(
         {
@@ -10,7 +11,7 @@ export class WhisperService {
           sequence: 0,
           language: 'en',
         },
-        (err: any, res: any) => {
+        (err: any, res: WhisperTranscript) => {
           if (err) return reject(err);
           resolve(res);
         },
