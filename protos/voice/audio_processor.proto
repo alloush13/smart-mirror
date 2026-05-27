@@ -2,27 +2,22 @@ syntax = "proto3";
 
 package audio;
 
-// SERVICE DEFINITION
 service AudioProcessingService {
 
-  // Processes a full audio file in a single request
   rpc ProcessAudioFile(AudioFileRequest) returns (AudioFileResult);
 
-  // Real-time bidirectional audio processing stream
   rpc StreamAudioProcessing(stream AudioStreamInput)
       returns (stream AudioStreamEvent);
 }
 
-
 enum AudioFormat {
   AUDIO_FORMAT_UNSPECIFIED = 0;
-  WAV = 1;
-  MP3 = 2;
-  OPUS = 3;
-  FLAC = 4;
+  PCM = 1;
+  WAV = 2;
+  MP3 = 3;
+  OPUS = 4;
+  FLAC = 5;
 }
-
-// UNARY (FILE PROCESSING)
 
 message AudioFileRequest {
   bytes audio_data = 1;
@@ -37,21 +32,19 @@ message AudioFileResult {
   int32 sample_rate = 4;
 }
 
-
-// STREAMING (REAL-TIME PROCESSING)
-
 message AudioStreamInput {
   bytes audio_chunk = 1;
   int32 chunk_index = 2;
   string session_id = 3;
   AudioFormat format = 4;
+  int32 sample_rate = 5;
+  int32 channels = 6;
 }
 
 message AudioStreamEvent {
+
   oneof event {
-
     AudioChunkResult chunk_result = 1;
-
     AudioProcessingSummary final_summary = 2;
   }
 }

@@ -1,47 +1,39 @@
-import os
 import numpy as np
 
 from src.processing.processor import AudioProcessor
-from src.services.audio_converter_service import AudioConverterService
-from src.utils.file_utils import save_upload_to_temp, load_audio, save_wav
 
 
 class AudioProcessorService:
 
     def __init__(self):
         self.processor = AudioProcessor()
-        self.converter = AudioConverterService()
 
     def process_audio_file(self, audio_bytes: bytes):
 
-        input_path = save_upload_to_temp(audio_bytes)
-
-        wav_path = self.converter.convert_to_wav(input_path)
-
-        audio, sr = load_audio(wav_path)
+        audio = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
 
         result = self.processor.process(audio)
 
-        output_path = save_wav(result["cleaned_audio"], sr)
-
-        with open(output_path, "rb") as f:
-            cleaned_audio = f.read()
+        cleaned = result["cleaned_audio"].astype(np.int16).tobytes()
 
         return {
-            "cleaned_audio": cleaned_audio,
+            "cleaned_audio": cleaned,
             "speech_ratio": result["speech_ratio"],
             "contains_speech": result["is_speech"],
-            "sample_rate": sr,
+            "sample_rate": 16000,
         }
 
     def process_stream_chunk(self, chunk: bytes, chunk_index: int):
 
-        audio, sr = load_audio(chunk)
+        # PCM decode (IMPORTANT FIX)
+        audio = np.frombuffer(chunk, dtype=np.int16).astype(np.float32)
 
         result = self.processor.process(audio)
 
+        processed = result["cleaned_audio"].astype(np.int16).tobytes()
+
         return {
-            "processed_chunk": result["cleaned_audio"],
+            "processed_chunk": processed,
             "contains_speech": result["is_speech"],
             "confidence": 0.8,
         }

@@ -1,68 +1,70 @@
-import Mirror from './components/Mirror'
-import Sidebar from './components/Sidebar'
-
-import {
-  useSmartMirrorSession,
-} from './hooks/useSmartMirrorSession'
-import { useCamera } from './hooks/useCamera'
-import { useSkinAnalysis } from './hooks/useSkinAnalysis'
+import { useEffect, useRef, useState } from "react";
+import { AudioService } from "./services/audio/AudioService";
+import type { AudioServiceState } from "./services/audio/types";
 
 export default function App() {
-  const {
-    isMirrorActive,
-    isListening,
-    isSpeaking,
-    turnOn,
-    turnOff,
-    toggleMirror,
-    toggleListening,
-  } = useSmartMirrorSession()
+  const audioServiceRef = useRef<AudioService | null>(null);
 
-  const {
-    videoRef,
-    error: cameraError,
-    retry,
-  } = useCamera(isMirrorActive)
+  const [state, setState] = useState<AudioServiceState>("idle");
 
-  const {
-    result: skinResult,
-    error: skinAnalysisError,
-    isAnalyzing,
-    analyzeCurrentFrame,
-    clearResult,
-  } = useSkinAnalysis()
+  useEffect(() => {
+    const service = new AudioService({
+      webSocketUrl: "http://localhost:3000", // <-- Socket.IO server
 
-  const handleAnalyzeSkin = async () => {
-    await analyzeCurrentFrame(videoRef.current)
-  }
+      onStateChange: (newState) => {
+        setState(newState);
+      },
+
+      onPacket: (packet) => {
+        console.log("packet:", packet);
+      },
+
+      onError: (error) => {
+        console.error("audio error:", error);
+      },
+    });
+
+    audioServiceRef.current = service;
+
+    return () => {
+      service.stop();
+      service.close();
+    };
+  }, []);
+
+  const start = async () => {
+    await audioServiceRef.current?.start();
+  };
+
+  const stop = async () => {
+    await audioServiceRef.current?.stop();
+  };
+
+  const pause = () => {
+    audioServiceRef.current?.pause();
+  };
+
+  const resume = () => {
+    audioServiceRef.current?.resume();
+  };
+
+  const resetSession = () => {
+    audioServiceRef.current?.resetSession();
+  };
 
   return (
-    <div className="relative isolate h-screen w-screen overflow-hidden bg-black text-white">
-      <div className="relative flex h-full w-full items-center justify-center">
-        <Sidebar
-          isActive={isMirrorActive}
-          isListening={isListening}
-          isSpeaking={isSpeaking}
-          turnOn={turnOn}
-          turnOff={turnOff}
-          toggleMirror={toggleMirror}
-          toggleListening={toggleListening}
-          onAnalyzeSkin={handleAnalyzeSkin}
-          isAnalyzingSkin={isAnalyzing}
-          skinResultCount={skinResult?.count}
-          skinAnalysisError={skinAnalysisError}
-          onClearSkinResult={clearResult}
-        />
+    <div style={{ padding: 20 }}>
+      <h2>Audio Service</h2>
 
-        <div className="flex-1 h-full w-full flex items-center justify-center">
-          <Mirror
-            isActive={isMirrorActive}
-            error={cameraError}
-            videoRef={videoRef}
-            retry={retry}
-          />
-        </div>
+      <p>State: {state}</p>
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={start}>Start</button>
+        <button onClick={stop}>Stop</button>
+        <button onClick={pause}>Pause</button>
+        <button onClick={resume}>Resume</button>
+        <button onClick={resetSession}>New Session</button>
       </div>
     </div>
-  )
+  );
 }

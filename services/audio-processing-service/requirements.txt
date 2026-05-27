@@ -1,6 +1,7 @@
 numpy
 scipy
 soundfile
+python-dotenv
 
 grpcio
 grpcio-tools

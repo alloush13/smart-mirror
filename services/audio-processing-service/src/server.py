@@ -1,3 +1,4 @@
+import os
 from concurrent import futures
 import grpc
 
@@ -7,6 +8,7 @@ import audio_processor_pb2_grpc
 from src.grpc.audio_service import AudioProcessingGrpcService
 from src.core.logger import logger
 
+PORT = os.getenv("GRPC_PORT", "50052")
 
 def serve():
 
@@ -31,11 +33,11 @@ def serve():
         health_pb2.HealthCheckResponse.SERVING,
     )
 
-    server.add_insecure_port("0.0.0.0:50052")
+    server.add_insecure_port(f"0.0.0.0:{PORT}")
 
     server.start()
 
-    logger.info("gRPC server running on :50052")
+    logger.info(f"gRPC server running on 0.0.0.0:{PORT}")
 
     server.wait_for_termination()
 

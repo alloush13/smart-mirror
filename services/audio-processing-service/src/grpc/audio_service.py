@@ -1,5 +1,4 @@
 import grpc
-
 import audio_processor_pb2
 import audio_processor_pb2_grpc
 
@@ -16,22 +15,14 @@ class AudioProcessingGrpcService(
 
     def ProcessAudioFile(self, request, context):
 
-        if not request.audio_data:
-            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "audio required")
+        result = self.service.process_audio_file(request.audio_data)
 
-        try:
-            result = self.service.process_audio_file(request.audio_data)
-
-            return audio_processor_pb2.AudioFileResult(
-                cleaned_audio=result["cleaned_audio"],
-                speech_ratio=result["speech_ratio"],
-                contains_speech=result["contains_speech"],
-                sample_rate=result["sample_rate"],
-            )
-
-        except Exception as e:
-            logger.exception(e)
-            context.abort(grpc.StatusCode.INTERNAL, "processing failed")
+        return audio_processor_pb2.AudioFileResult(
+            cleaned_audio=result["cleaned_audio"],
+            speech_ratio=result["speech_ratio"],
+            contains_speech=result["contains_speech"],
+            sample_rate=result["sample_rate"],
+        )
 
     def StreamAudioProcessing(self, request_iterator, context):
 
