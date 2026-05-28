@@ -31,9 +31,9 @@ services:
     ports:
       - '8001:8000'
     restart: unless-stopped
-  audio-processing-service:
-    build: ./services/audio-processing-service
-    container_name: audio-processing-service
+  audio-processor-service:
+    build: ./services/audio-processor-service
+    container_name: audio-processor-service
     ports:
       - '50052:50052'
     restart: unless-stopped
