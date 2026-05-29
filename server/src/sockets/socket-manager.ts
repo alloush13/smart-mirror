@@ -1,72 +1,55 @@
-import { Server } from 'socket.io';
-
-import { AudioStreamService } from
-  '../modules/voice/audio/audio-stream.service';
+import { Server, Socket } from 'socket.io';
+import { whisperClient } from '../modules/voice/whisper/whisper.client';
 
 export class SocketManager {
-
-  private readonly audioStreamService =
-    new AudioStreamService();
-
-  constructor(
-    private readonly io: Server,
-  ) {}
+  constructor(private readonly io: Server) {}
 
   public register(): void {
+    this.io.on('connection', (socket: Socket) => {
+      console.log('client connected:', socket.id);
 
-    this.io.on(
-      'connection',
-      (socket) => {
+      let stream = whisperClient.StreamTranscribe();
 
-        console.log(
-          'client connected:',
-          socket.id,
-        );
+      socket.on('audio:chunk', (data: Buffer) => {
+        const audioBuffer = Buffer.isBuffer(data)
+          ? data
+          : Buffer.from(data);
 
-        const grpcStream =
-          this.audioStreamService
-            .createStream(
-              socket,
-              socket.id,
-            );
+        stream.write({
+          data: audioBuffer,
+          sample_rate: 16000,
+          sequence: Date.now(),
+          language: 'en',
+          is_final: false,
+          timestamp_ms: Date.now(),
+        });
+      });
 
-        socket.on(
-          'audio:chunk',
-          (data: Buffer) => {
+      socket.on('audio:end', () => {
+        stream.write({
+          data: Buffer.alloc(0),
+          sample_rate: 16000,
+          sequence: Date.now(),
+          language: 'en',
+          is_final: true,
+          timestamp_ms: Date.now(),
+        });
 
-            const audioBuffer =
-              Buffer.isBuffer(data)
-                ? data
-                : Buffer.from(data);
+        stream.end();
+        stream = whisperClient.StreamTranscribe();
+      });
 
-            grpcStream.write({
+      stream.on('data', (msg: any) => {
+        socket.emit('transcript', msg);
+      });
 
-              pcm: audioBuffer,
+      stream.on('error', (err: any) => {
+        socket.emit('error', err.message);
+      });
 
-              session_id: socket.id,
-
-              sample_rate: 16000,
-
-              channels: 1,
-
-              timestamp_ms: Date.now(),
-            });
-          },
-        );
-
-        socket.on(
-          'disconnect',
-          () => {
-
-            console.log(
-              'client disconnected:',
-              socket.id,
-            );
-
-            grpcStream.end();
-          },
-        );
-      },
-    );
+      socket.on('disconnect', () => {
+        stream.end();
+      });
+    });
   }
 }

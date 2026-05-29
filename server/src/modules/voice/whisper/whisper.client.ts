@@ -8,7 +8,7 @@ const proto = loadProto(
 );
 
 export const whisperClient =
-  new proto.voice.WhisperService(
+  new proto.voice.Whisper(
     env.WHISPER_SERVICE_URL,
     grpc.credentials.createInsecure(),
   );

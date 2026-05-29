@@ -9,15 +9,10 @@ export class AudioStreamService {
     sessionId: string,
   ) {
 
-    const grpcStream =
-      audioClient.StreamAudio();
+    const grpcStream = audioClient.StreamAudio();
 
-    grpcStream.on(
-      'data',
-      (event: any) => {
-
+    grpcStream.on('data',(event: any) => {
         if (event.speech_started) {
-
           socket.emit(
             'speech:started',
             {

@@ -1,104 +1,81 @@
-import tempfile
 import time
-
 import grpc
+import numpy as np
 
 import whisper_pb2
 import whisper_pb2_grpc
 
-from src.core.config import MAX_AUDIO_SIZE
-from src.core.logger import logger
-
-from src.services.audio_converter import (
-    cleanup_file,
-    convert_to_wav,
-)
-
-from src.services.transcriber import (
-    transcribe_audio,
-)
+from src.services.transcriber import transcribe
 
 
-class WhisperService(
-    whisper_pb2_grpc.WhisperServiceServicer
-):
+class Whisper(whisper_pb2_grpc.WhisperServicer):
 
-    def StreamTranscribe(
-        self,
-        request_iterator,
-        context,
-    ):
+    def StreamTranscribe(self, request_iterator, context):
+
+        buffer = []
+        language = "en"
+
         start_time = time.time()
 
-        tmp_file = tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".webm",
-        )
-
-        wav_path = None
-
-        chunks = []
-
-        total_size = 0
-
-        language = "ar"
+        last_sequence = -1
 
         try:
+
             for chunk in request_iterator:
-                total_size += len(chunk.data)
 
-                if total_size > MAX_AUDIO_SIZE:
-                    context.abort(
-                        grpc.StatusCode.INVALID_ARGUMENT,
-                        "audio too large",
-                    )
+                # ترتيب الحزم (important for realtime)
+                if chunk.sequence <= last_sequence:
+                    continue
 
-                chunks.append(chunk.data)
+                last_sequence = chunk.sequence
 
                 if chunk.language:
                     language = chunk.language
 
-            audio_buffer = b"".join(chunks)
+                # PCM16 → float32
+                audio = np.frombuffer(chunk.data, dtype=np.int16).astype(np.float32)
+                audio = audio / 32768.0
 
-            tmp_file.write(audio_buffer)
-            tmp_file.close()
+                buffer.append(audio)
 
-            wav_path = convert_to_wav(tmp_file.name)
+                # 🔥 partial update (throttled)
+                if len(buffer) % 30 == 0 and not chunk.is_final:
 
-            result = transcribe_audio(
-                wav_path=wav_path,
-                language=language,
-            )
+                    partial_audio = np.concatenate(buffer[-30:])  # آخر 30 chunk فقط
 
-            processing_time_ms = int(
-                (time.time() - start_time) * 1000
-            )
+                    result = transcribe(partial_audio, language)
 
-            logger.info(
-                "Transcription completed in %sms",
-                processing_time_ms,
-            )
+                    yield whisper_pb2.Transcript(
+                        text=result["text"],
+                        is_final=False,
+                        confidence=0.6,
+                        language=result["language"],
+                        processing_time_ms=int((time.time() - start_time) * 1000),
+                    )
 
-            yield whisper_pb2.Transcript(
-                text=result["text"],
-                is_final=True,
-                confidence=1.0,
-                start_time=0,
-                end_time=0,
-                language=result["language"],
-                processing_time_ms=processing_time_ms,
-            )
+                # 🔴 END OF UTTERANCE (from VAD)
+                if chunk.is_final:
 
-        except Exception as exc:
-            logger.exception(exc)
+                    full_audio = np.concatenate(buffer)
 
-            context.set_details(str(exc))
+                    # منع الصوت الصغير جدًا
+                    if len(full_audio) < 1600:
+                        buffer = []
+                        continue
 
-            context.set_code(
-                grpc.StatusCode.INTERNAL
-            )
+                    result = transcribe(full_audio, language)
 
-        finally:
-            cleanup_file(tmp_file.name)
+                    yield whisper_pb2.Transcript(
+                        text=result["text"],
+                        is_final=True,
+                        confidence=0.9,
+                        language=result["language"],
+                        processing_time_ms=int((time.time() - start_time) * 1000),
+                    )
 
-            cleanup_file(wav_path)
+                    buffer = []
+                    start_time = time.time()
+
+        except Exception as e:
+            context.set_details(str(e))
+            context.set_code(grpc.StatusCode.INTERNAL)
