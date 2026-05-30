@@ -17,7 +17,7 @@ from src.grpc.audio_service import (
 
 from src.core.logger import logger
 
-PORT = os.getenv("GRPC_PORT", "50052")
+PORT = os.getenv("GRPC_PORT", "50051")
 
 
 async def serve():

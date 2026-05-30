@@ -35,6 +35,6 @@ RUN python -m grpc_tools.protoc \
     --grpc_python_out=. \
     ./proto/audio_processor.proto
 
-EXPOSE 50052
+EXPOSE 50051
 
 CMD ["python", "src/server.py"]

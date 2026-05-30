@@ -22,7 +22,7 @@ services:
       context: ./services/whisper-service
     container_name: whisper-service
     ports:
-      - '50051:50051'
+      - '50052:50052'
     restart: unless-stopped
   skin-analysis-service:
     build:
@@ -35,5 +35,5 @@ services:
     build: ./services/audio-processor-service
     container_name: audio-processor-service
     ports:
-      - '50052:50052'
+      - '50051:50051'
     restart: unless-stopped

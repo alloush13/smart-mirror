@@ -31,11 +31,14 @@ message AudioStreamEvent {
 
     SpeechEnded speech_ended = 3;
 
-    ErrorEvent error = 4;
+    UtteranceReady utterance_ready = 4;
+
+    ErrorEvent error = 5;
   }
 }
 
 message SpeechStarted {
+
   int64 timestamp_ms = 1;
 }
 
@@ -61,6 +64,22 @@ message SpeechEnded {
   int32 duration_ms = 3;
 }
 
+message UtteranceReady {
+
+  string session_id = 1;
+
+  bytes pcm = 2;
+
+  int32 sample_rate = 3;
+
+  int32 duration_ms = 4;
+
+  int64 timestamp_ms = 5;
+}
+
 message ErrorEvent {
-  string message = 1;
+
+  string code = 1;
+
+  string message = 2;
 }

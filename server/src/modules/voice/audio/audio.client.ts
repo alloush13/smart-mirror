@@ -10,6 +10,6 @@ const proto = loadProto(
 
 export const audioClient =
   new proto.audio.AudioProcessor(
-    env.AUDIO_SERVICE_URL,
+    env.AUDIO_PROCESSOR_SERVICE_URL,
     grpc.credentials.createInsecure(),
   );

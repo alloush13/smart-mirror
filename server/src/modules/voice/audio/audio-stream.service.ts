@@ -13,8 +13,8 @@ export class AudioStreamService {
 
     grpcStream.on('data',(event: any) => {
         if (event.speech_started) {
-          socket.emit(
-            'speech:started',
+          console.log(event);
+          socket.emit('speech:started',
             {
               timestamp:
                 event.speech_started
