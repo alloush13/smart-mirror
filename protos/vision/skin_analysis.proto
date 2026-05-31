@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package vision.skin.v1;
+
+service SkinAnalysisService {
+  rpc Analyze(AnalyzeRequest) returns (AnalyzeResponse);
+}
+
+message AnalyzeRequest {
+  bytes image = 1;
+
+  optional float conf = 2;
+
+  optional float iou = 3;
+}
+message Point {
+  float x = 1;
+  float y = 2;
+}
+
+message BoundingBox {
+  Point center = 1;
+  float width = 2;
+  float height = 3;
+}
+
+message Detection {
+  BoundingBox bounding_box = 1;
+
+  float confidence = 2;
+
+  int32 class_id = 3;
+
+  string class_name = 4;
+}
+
+message AnalyzeResponse {
+  repeated Detection detections = 1;
+  int32 count = 2;
+}

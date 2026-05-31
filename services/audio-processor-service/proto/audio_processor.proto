@@ -4,8 +4,7 @@ package audio;
 
 service AudioProcessor {
 
-  rpc StreamAudio(stream AudioStreamChunk)
-      returns (stream AudioStreamEvent);
+  rpc StreamAudio(stream AudioStreamChunk) returns (stream AudioStreamEvent);
 }
 
 message AudioStreamChunk {

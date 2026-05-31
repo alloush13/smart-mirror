@@ -16,6 +16,6 @@ COPY src/ /app/src/
 COPY storage/ /app/storage/
 COPY *.proto /app/
 
-EXPOSE 50053
+EXPOSE 50054
 
 CMD ["python", "src/main.py"]

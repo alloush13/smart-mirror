@@ -56,9 +56,7 @@ async def serve():
 
     await server.start()
 
-    logger.info(
-        f"Audio processor started on 0.0.0.0:{PORT}"
-    )
+    logger.info(f"Audio processor started on 0.0.0.0:{PORT}")
 
     await server.wait_for_termination()
 

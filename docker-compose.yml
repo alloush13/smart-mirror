@@ -29,7 +29,7 @@ services:
       context: ./services/skin-analysis-service
     container_name: skin-analysis-service
     ports:
-      - '8001:8000'
+      - '50053:50053'
     restart: unless-stopped
   audio-processor-service:
     build: ./services/audio-processor-service
