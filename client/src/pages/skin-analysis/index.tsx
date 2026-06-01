@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SKIN_ANALYSIS_URL } from "./constants";
 import type { AnalysisResponse } from "./types";
-import { SkinAnalysisCapturePanel, SkinAnalysisDetailsPanel } from "../../components/skin-analysis";
+
+import {
+    SkinAnalysisCapturePanel,
+    SkinAnalysisDetailsPanel,
+} from "../../components/skin-analysis";
+
 import { useSkinAnalysisCamera } from "./useSkinAnalysisCamera";
+import { useSocket } from "../../hooks/useSocket";
 
 const SkinAnalysisPage = () => {
+    const socket = useSocket();
+
     const {
         videoRef,
         canvasRef,
@@ -23,24 +31,55 @@ const SkinAnalysisPage = () => {
     const [analysisError, setAnalysisError] = useState("");
     const [lastUpdated, setLastUpdated] = useState("");
 
+    /**
+     * Listen to socket results
+     */
+    useEffect(() => {
+        const onResult = (data: AnalysisResponse) => {
+            setAnalysis(data);
+            setLastUpdated(new Date().toLocaleTimeString());
+            setAnalyzing(false);
+        };
+
+        const onError = (err: { message: string }) => {
+            setAnalysisError(err.message);
+            setAnalyzing(false);
+        };
+
+        socket.on("skin:result", onResult);
+        socket.on("skin:error", onError);
+
+        return () => {
+            socket.off("skin:result", onResult);
+            socket.off("skin:error", onError);
+        };
+    }, [socket]);
+
+    /**
+     * Clear results
+     */
     const handleClearResult = () => {
         setCapturedImage((current) => {
             if (current) {
                 URL.revokeObjectURL(current);
             }
-
             return "";
         });
+
         setAnalysis(null);
         setAnalysisError("");
     };
 
+    /**
+     * Capture + send via socket
+     */
     const handleAnalyze = async () => {
         setAnalysisError("");
         setAnalysis(null);
 
         try {
             setAnalyzing(true);
+
             const blob = await captureFrame();
             const preview = URL.createObjectURL(blob);
 
@@ -48,34 +87,35 @@ const SkinAnalysisPage = () => {
                 if (current) {
                     URL.revokeObjectURL(current);
                 }
-
                 return preview;
             });
 
-            const formData = new FormData();
-            formData.append("image", blob, "skin-analysis.jpg");
+            // convert to ArrayBuffer (safe for socket transport)
+            const buffer = await blob.arrayBuffer();
 
-            const response = await fetch(SKIN_ANALYSIS_URL, {
-                method: "POST",
-                body: formData,
+            socket.emit("skin:analyze", {
+                image: buffer,
+                conf: 0.5,
+                iou: 0.4,
             });
-
-            if (!response.ok) {
-                throw new Error(`فشل إرسال الصورة: ${response.status} ${response.statusText}`);
-            }
-
-            const data = (await response.json()) as AnalysisResponse;
-            setAnalysis(data);
-            setLastUpdated(new Date().toLocaleTimeString());
         } catch (error) {
-            setAnalysisError(error instanceof Error ? error.message : "حدث خطأ أثناء التحليل");
-        } finally {
+            setAnalysisError(
+                error instanceof Error
+                    ? error.message
+                    : "حدث خطأ أثناء التحليل",
+            );
             setAnalyzing(false);
         }
     };
 
-    const detectedCount = analysis?.count ?? analysis?.detections?.length ?? 0;
-    const cameraStatusText = cameraReady ? "Camera ready" : cameraStarting ? "Requesting permission..." : "Camera off";
+    const detectedCount =
+        analysis?.count ?? analysis?.detections?.length ?? 0;
+
+    const cameraStatusText = cameraReady
+        ? "Camera ready"
+        : cameraStarting
+          ? "Requesting permission..."
+          : "Camera off";
 
     return (
         <div className="min-h-screen bg-white">

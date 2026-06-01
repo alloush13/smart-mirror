@@ -4,8 +4,8 @@ import cors from 'cors';
 import { Server } from 'socket.io';
 
 import { SocketManager } from './sockets/socket-manager';
-import { checkGrpcHealth } from './core/grpc/health';
-import { env } from './config/env';
+// import { checkGrpcHealth } from './core/grpc/health';
+// import { env } from './config/env';
 
 // Initialize Express app
 const app = express();
@@ -13,25 +13,27 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health endpoint: checks gRPC health of audio and whisper services
-app.get('/health', async (_req, res) => {
-  try {
-    const [audioStatus, whisperStatus] =
-  await Promise.all([
-    checkGrpcHealth(
-      env.AUDIO_PROCESSOR_SERVICE_URL,
-      'audio.AudioProcessor',
-    ),
-    checkGrpcHealth(
-      env.WHISPER_SERVICE_URL,
-      'voice.Whisper',
-    ),
-  ]);
-    res.json({ audio: audioStatus, whisper: whisperStatus });
-  } catch (error) {
-    res.status(500).json({ error: 'Health check failed' });
-  }
+app.get('/health', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    sockets: io.engine.clientsCount,
+  });
 });
+
+// app.get('/health', async (_req, res) => {
+//   try {
+//     const [audioStatus, whisperStatus] = await Promise.all([
+//       checkGrpcHealth(env.AUDIO_PROCESSOR_SERVICE_URL, 'audio.AudioProcessor'),
+//       checkGrpcHealth(env.WHISPER_SERVICE_URL, 'voice.Whisper'),
+//     ]);
+//     res.json({ audio: audioStatus, whisper: whisperStatus });
+//   } catch (error) {
+//     console.log(error);
+//     res.status(500).json({ error: 'Health check failed' });
+//   }
+// });
 
 const server = http.createServer(app);
 

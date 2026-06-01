@@ -3,20 +3,38 @@ import HealthHeader from "../components/overview/HealthHeader";
 import HealthControls from "../components/overview/HealthControls";
 import ServiceCard from "../components/overview/ServiceCard";
 import HealthSummary from "../components/overview/HealthSummary";
+import { useSocket } from "../hooks/useSocket";
 
 interface HealthStatus {
-    server?: string;
     audio?: string;
     whisper?: string;
     skinAnalysis?: string;
     faceRecognition?: string;
 }
 
+
 const Overview = () => {
     const [health, setHealth] = useState<HealthStatus>({});
     const [loading, setLoading] = useState(false);
     const [lastCheck, setLastCheck] = useState<string>("");
-    const [autoRefresh, setAutoRefresh] = useState(false);
+
+    const socket = useSocket();
+
+const [socketConnected, setSocketConnected] = useState(socket.connected);
+
+
+    useEffect(() => {
+    const onConnect = () => setSocketConnected(true);
+    const onDisconnect = () => setSocketConnected(false);
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+
+    return () => {
+        socket.off("connect", onConnect);
+        socket.off("disconnect", onDisconnect);
+    };
+}, [socket]);
 
     const checkHealth = async () => {
         setLoading(true);
@@ -25,12 +43,12 @@ const Overview = () => {
             const json = await res.json();
             setHealth(json);
             setLastCheck(new Date().toLocaleTimeString());
-        } catch (e) {
+        } catch (error) {
+            console.log(error);
             setHealth({
-                server: "unreachable",
                 audio: "unreachable",
                 whisper: "unreachable",
-                skinAnalysis: json["skin-analysis"] || json.skinAnalysis,
+                skinAnalysis: "unreachable",
             });
             setLastCheck(new Date().toLocaleTimeString());
         } finally {
@@ -38,15 +56,7 @@ const Overview = () => {
         }
     };
 
-    useEffect(() => {
-        if (autoRefresh) {
-            const interval = setInterval(checkHealth, 5000);
-            return () => clearInterval(interval);
-        }
-    }, [autoRefresh]);
-
     const services = [
-        { name: "Server", status: health.server ?? "-", icon: "🖥️" },
         { name: "Audio Processor", status: health.audio ?? "-", icon: "🎙️" },
         { name: "Whisper", status: health.whisper ?? "-", icon: "🎤" },
         { name: "Skin Analysis", status: health.skinAnalysis ?? "-", icon: "🔬" },
@@ -55,13 +65,11 @@ const Overview = () => {
 
     return (
         <div className="min-h-screen max-w-4xl mx-auto">
-            <HealthHeader />
+            <HealthHeader socketConnected={socketConnected} />
 
             <HealthControls
                 loading={loading}
                 onCheck={checkHealth}
-                autoRefresh={autoRefresh}
-                setAutoRefresh={setAutoRefresh}
                 lastCheck={lastCheck}
             />
 

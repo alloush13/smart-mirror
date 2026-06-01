@@ -1,16 +1,12 @@
 interface Props {
     loading: boolean;
     onCheck: () => void;
-    autoRefresh: boolean;
-    setAutoRefresh: (v: boolean) => void;
     lastCheck: string;
 }
 
 const HealthControls = ({
     loading,
     onCheck,
-    autoRefresh,
-    setAutoRefresh,
     lastCheck,
 }: Props) => {
     return (
@@ -23,14 +19,6 @@ const HealthControls = ({
                 {loading ? "Checking..." : "Check Health"}
             </button>
 
-            <label className="flex items-center gap-2">
-                <input
-                    type="checkbox"
-                    checked={autoRefresh}
-                    onChange={(e) => setAutoRefresh(e.target.checked)}
-                />
-                Auto-refresh
-            </label>
 
             {lastCheck && (
                 <span className="text-xs text-gray-500">
