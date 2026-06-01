@@ -1,7 +1,6 @@
 ultralytics
-torch
-torchvision
-Pillow
 numpy
+Pillow
 grpcio
 grpcio-tools
+opencv-python-headless
