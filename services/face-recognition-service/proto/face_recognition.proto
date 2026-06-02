@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package vision;
+
+
+service FaceRecognition {
+  rpc DetectFace (DetectRequest) returns (DetectResponse);
+}
+
+
+message DetectRequest {
+  bytes image = 1;
+
+  // optional thresholds
+  float conf = 2;
+  float iou = 3;
+}
+
+// =====================
+// Response
+// =====================
+message DetectResponse {
+  repeated Detection detections = 1;
+  int32 count = 2;
+}
+
+// =====================
+// Detection object
+// =====================
+message Detection {
+  BoundingBox bounding_box = 1;
+
+  float confidence = 2;
+  int32 class_id = 3;
+  string class_name = 4;
+}
+
+// =====================
+// Bounding box (XYWH format)
+// =====================
+message BoundingBox {
+  float x = 1; // center x or top-left depending on implementation
+  float y = 2;
+  float w = 3;
+  float h = 4;
+}

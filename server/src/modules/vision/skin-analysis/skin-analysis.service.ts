@@ -47,7 +47,7 @@ export class SkinAnalysisService {
             reject(error);
             return;
           }
-
+          console.log(response);
           resolve(response);
         },
       );

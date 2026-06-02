@@ -14,18 +14,14 @@ export interface SkinAnalysisClient {
 }
 type SkinProto = grpc.GrpcObject & {
   vision: grpc.GrpcObject & {
-    skin: grpc.GrpcObject & {
-      v1: grpc.GrpcObject & {
-        SkinAnalysisService: new (
+    SkinAnalysis: new (
           address: string,
           credentials: grpc.ChannelCredentials,
         ) => SkinAnalysisClient;
-      };
-    };
   };
 };
 const proto = loadProto<SkinProto>('proto/vision/skin_analysis.proto');
-export const skinAnalysisClient = new proto.vision.skin.v1.SkinAnalysisService(
+export const skinAnalysisClient = new proto.vision.SkinAnalysis(
   env.SKIN_ANALYSIS_SERVICE_URL,
   grpc.credentials.createInsecure(),
 );

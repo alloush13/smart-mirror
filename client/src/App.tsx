@@ -5,7 +5,7 @@ import Home from "./pages/Home.tsx"
 import AudioProcessor from "./pages/AudioProcessor.tsx"
 import FaceRecognition from "./pages/FaceRecognition.tsx";
 import Overview from "./pages/Overview.tsx";
-import SkinAnalysis from "./pages/skin-analysis";
+import SkinAnalysis from "./pages/skinAnalysis.tsx";
 
 export default function App() {
  

@@ -4,5 +4,6 @@ export const env = {
 
   WHISPER_SERVICE_URL: process.env.WHISPER_SERVICE_URL || 'localhost:50052',
   SKIN_ANALYSIS_SERVICE_URL: process.env.SKIN_ANALYSIS_SERVICE_URL || 'localhost:50053',
+  FACE_RECOGNITION_SERVICE_URL: process.env.FACE_RECOGNITION_SERVICE_URL || 'localhost:50054',
 
 };
