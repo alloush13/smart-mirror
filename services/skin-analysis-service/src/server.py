@@ -72,6 +72,7 @@ class SkinAnalysisService(
             )
 
         except Exception as e:
+            logger.info("Error occurred while analyzing image")
             context.abort(grpc.StatusCode.INTERNAL, str(e))
 
 

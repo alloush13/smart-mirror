@@ -17,7 +17,7 @@ WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci --omit=dev
-
+COPY proto ./proto
 COPY --from=builder /app/dist ./dist
 
 RUN addgroup -S app && adduser -S app -G app

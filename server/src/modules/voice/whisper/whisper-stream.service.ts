@@ -3,32 +3,19 @@ import { Socket } from 'socket.io';
 import { whisperClient } from './whisper.client';
 
 export class WhisperStreamService {
-  createStream(socket: Socket) {
-    const stream =
-      whisperClient.StreamTranscribe();
+  recognizeSpeech(socket: Socket, payload: { audio: ArrayBuffer }) {
+    whisperClient.Transcribe(
+      {
+        data: payload.audio,
+      },
+      (err, response) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
 
-    stream.on(
-      'data',
-      (transcript: any) => {
-        socket.emit(
-          'transcript',
-          transcript,
-        );
+        socket.emit('speech:result', response);
       },
     );
-
-    stream.on(
-      'error',
-      (err: Error) => {
-        socket.emit(
-          'speech:error',
-          {
-            message: err.message,
-          },
-        );
-      },
-    );
-
-    return stream;
   }
 }

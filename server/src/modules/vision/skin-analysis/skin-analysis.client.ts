@@ -15,9 +15,9 @@ export interface SkinAnalysisClient {
 type SkinProto = grpc.GrpcObject & {
   vision: grpc.GrpcObject & {
     SkinAnalysis: new (
-          address: string,
-          credentials: grpc.ChannelCredentials,
-        ) => SkinAnalysisClient;
+      address: string,
+      credentials: grpc.ChannelCredentials,
+    ) => SkinAnalysisClient;
   };
 };
 const proto = loadProto<SkinProto>('proto/vision/skin_analysis.proto');

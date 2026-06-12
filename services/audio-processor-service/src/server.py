@@ -1,44 +1,42 @@
-import asyncio
-import signal
+from concurrent.futures import ThreadPoolExecutor
 import os
-from grpc_health.v1 import health_pb2
-from src.grpc.server import create_server
+import grpc
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
+import audio_processor_pb2_grpc
+
 from src.core.logger import logger
+from src.controllers.audio_processor_controller import AudioProcessingController
 
 PORT = int(os.getenv("GRPC_PORT", 50051))
-SERVICE_NAME = "audio.AudioProcessor"
+SERVICE_NAME = "voice.AudioProcessor"
 
 
-async def serve():
-    server, health_servicer = create_server()
+def serve():
+    server = grpc.server(ThreadPoolExecutor())
+
+    audio_processor_pb2_grpc.add_AudioProcessorServicer_to_server(
+        AudioProcessingController(),
+        server,
+    )
+
+    health_servicer = health.HealthServicer()
+    health_pb2_grpc.add_HealthServicer_to_server(
+        health_servicer,
+        server,
+    )
 
     server.add_insecure_port(f"0.0.0.0:{PORT}")
 
-    await health_servicer.set(
-        SERVICE_NAME,
-        health_pb2.HealthCheckResponse.SERVING,
-    )
-
-    stop_event = asyncio.Event()
-
-    def _stop(*_):
-        stop_event.set()
-
-    signal.signal(signal.SIGINT, _stop)
-    signal.signal(signal.SIGTERM, _stop)
-
-    await server.start()
-    logger.info(f"Audio processor started on {PORT}")
-
-    await stop_event.wait()
-
-    await health_servicer.set(
+    health_servicer.set(
         SERVICE_NAME,
         health_pb2.HealthCheckResponse.NOT_SERVING,
     )
+    server.start()
+    logger.info(f"Audio processor started on {PORT}")
 
-    await server.stop(5)
-
-
-if __name__ == "__main__":
-    asyncio.run(serve())
+    health_servicer.set(
+        SERVICE_NAME,
+        health_pb2.HealthCheckResponse.SERVING,
+    )
+    
+    server.wait_for_termination()

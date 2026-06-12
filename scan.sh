@@ -8,7 +8,7 @@ if [ -z "$DIR" ]; then
 fi
 
 find "$DIR" \
-  \( -path "*/node_modules" -o -path "*/dist" -o -path "*/.git" \) -prune -o \
+  \( -path "*/node_modules" -o -path "*/__pycache__" -o -path "*/dist" -o -path "*/.git" \) -prune -o \
   -type f \
   ! -name ".DS_Store" \
   ! -name "package-lock.json" \

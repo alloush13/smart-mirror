@@ -31,8 +31,8 @@ COPY proto/ ./proto/
 
 RUN python -m grpc_tools.protoc \
     -I=./proto \
-    --python_out=./src \
-    --grpc_python_out=./src \
+    --python_out=./src/generated \
+    --grpc_python_out=./src/generated \
     ./proto/skin_analysis.proto
 
 EXPOSE 50053

@@ -1,9 +1,13 @@
+import numpy as np
+
 from src.processing.processor import AudioProcessor
 from src.processing.session_manager import SessionManager
 from src.core.config import (
+    BATCH_SIZE,
     VAD_THRESHOLD,
     SPEECH_START_FRAMES,
     SPEECH_END_FRAMES,
+    MIN_AMPLITUDE_THRESHOLD,
 )
 
 
@@ -20,84 +24,77 @@ class AudioProcessorService:
         sample_rate: int,
         timestamp_ms: int,
     ):
-
         state = self.sessions.get(session_id)
 
-        result = self.processor.process_chunk(
-            pcm,
-            sample_rate,
-        )
-
-        speech_probability = result["speech_probability"]
-
-        state.total_frames += 1
-        events = []
-
-        is_speech = speech_probability >= VAD_THRESHOLD
+        state.update_activity()
 
         # =========================
-        # SPEECH DETECTED
+        # 1. BUFFER CHUNKS
+        # =========================
+        state.chunk_buffer.append(pcm)
+
+        if len(state.chunk_buffer) < BATCH_SIZE:
+            return None  # مهم جدًا: لا شيء بعد
+
+        merged_pcm = b"".join(state.chunk_buffer)
+        state.chunk_buffer.clear()
+
+        # =========================
+        # 2. ENERGY CHECK
+        # =========================
+        audio_np = np.frombuffer(merged_pcm, dtype=np.int16).astype(np.float32)
+        mean_abs = np.mean(np.abs(audio_np))
+
+        if mean_abs < MIN_AMPLITUDE_THRESHOLD:
+            is_speech = False
+        else:
+            result = self.processor.process_chunk(merged_pcm, sample_rate)
+            is_speech = result["speech_probability"] >= VAD_THRESHOLD
+
+        # =========================
+        # 3. SPEECH START
         # =========================
         if is_speech:
 
             state.speech_frames += 1
             state.silence_frames = 0
-            state.speech_detected_frames += 1
 
-            if state.is_speaking:
-                state.utterance_chunks.append(pcm)
+            state.last_speech_time = timestamp_ms
+            state.utterance_buffer.append(merged_pcm)
 
             if (
-                not state.is_speaking
+                not state.is_utterance_active
                 and state.speech_frames >= SPEECH_START_FRAMES
             ):
-                state.is_speaking = True
+                state.is_utterance_active = True
                 state.utterance_started_at = timestamp_ms
 
-                events.append({
+                return {
                     "type": "speech_started",
                     "timestamp_ms": timestamp_ms,
-                })
+                }
 
         # =========================
-        # SILENCE
+        # 4. SILENCE + END
         # =========================
         else:
-
             state.silence_frames += 1
             state.speech_frames = 0
 
-            if state.is_speaking:
-                state.utterance_chunks.append(pcm)
+            if state.is_utterance_active:
 
-            if (
-                state.is_speaking
-                and state.silence_frames >= SPEECH_END_FRAMES
-            ):
-                state.is_speaking = False
+                state.utterance_buffer.append(merged_pcm)
 
-                duration_ms = timestamp_ms - state.utterance_started_at
+                if state.silence_frames >= SPEECH_END_FRAMES:
 
-                events.append({
-                    "type": "speech_ended",
-                    "timestamp_ms": timestamp_ms,
-                    "speech_ratio": state.speech_ratio(),
-                    "duration_ms": duration_ms,
-                    "utterance_pcm": b"".join(state.utterance_chunks),
-                })
+                    utterance = b"".join(state.utterance_buffer)
 
-                state.reset()
+                    state.reset()
 
-        # =========================
-        # FRAME EVENT (always)
-        # =========================
-        events.append({
-            "type": "speech_frame",
-            "timestamp_ms": timestamp_ms,
-            "cleaned_pcm": result["cleaned_pcm"],
-            "speech_probability": speech_probability,
-            "speech_ratio": state.speech_ratio(),
-            "contains_speech": result["contains_speech"],
-        })
+                    return {
+                        "type": "utterance_ready",
+                        "timestamp_ms": timestamp_ms,
+                        "utterance_pcm": utterance,
+                    }
 
-        return events
+        return None

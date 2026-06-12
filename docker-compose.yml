@@ -3,11 +3,14 @@ services:
     build: ./server
     container_name: smart_mirror_server
     restart: unless-stopped
+    networks:
+      - backend
     environment:
       PORT: 5000
       CLIENT_ORIGIN: http://localhost:5173
-      WHISPER_URL: http://whisper-service:8000/transcribe
-      SKIN_ANALYSIS_URL: http://skin-analysis-service:8000
+      SKIN_ANALYSIS_SERVICE_URL: skin-analysis-service:50053
+      FACE_RECOGNITION_SERVICE_URL: face-recognition-service:50054
+      AUDIO_PROCESSOR_SERVICE_URL: audio-processor-service:50051
     ports:
       - "5000:5000"
 
@@ -15,24 +18,28 @@ services:
     build:
       context: ./client
     container_name: smart_mirror_client
+    networks:
+      - backend
     ports:
-      - '5173:5173'
+      - '80:80'
     restart: unless-stopped
 
   audio-processor-service:
     build: ./services/audio-processor-service
     container_name: audio-processor-service
+    networks:
+      - backend
     ports:
       - '50051:50051'
     restart: unless-stopped
 
-  whisper-service:
-    build:
-      context: ./services/whisper-service
-    container_name: whisper-service
-    ports:
-      - '50052:50052'
-    restart: unless-stopped
+  # whisper-service:
+  #   build:
+  #     context: ./services/whisper-service
+  #   container_name: whisper-service
+  #   ports:
+  #     - '50052:50052'
+  #   restart: unless-stopped
 
   skin-analysis-service:
     build:
@@ -49,3 +56,7 @@ services:
     ports:
       - '50054:50054'
     restart: unless-stopped
+networks:
+  backend:
+    driver: bridge
+    name: backend

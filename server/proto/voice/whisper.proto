@@ -3,35 +3,13 @@ syntax = "proto3";
 package voice;
 
 service Whisper {
-
-  rpc StreamTranscribe(stream AudioChunk)
-      returns (stream Transcript);
+  rpc Transcribe(TranscribeRequest) returns (TranscribeResponse);
 }
 
-message AudioChunk {
-
+message TranscribeRequest {
   bytes data = 1;
-
-  int32 sample_rate = 2;
-
-  int32 sequence = 3;
-
-  string language = 4;
-
-  bool is_final = 5;
-
-  int64 timestamp_ms = 6;
 }
 
-message Transcript {
-
+message TranscribeResponse {
   string text = 1;
-
-  bool is_final = 2;
-
-  float confidence = 3;
-
-  string language = 4;
-
-  int64 processing_time_ms = 5;
 }

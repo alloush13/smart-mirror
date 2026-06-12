@@ -8,7 +8,8 @@ export function loadProto<T extends grpc.GrpcObject>(protoPath: string): T {
     longs: String,
     enums: String,
     defaults: true,
+    oneofs: true,
   });
 
-  return grpc.loadPackageDefinition(packageDef) as unknown as T;
+  return grpc.loadPackageDefinition(packageDef) as T;
 }

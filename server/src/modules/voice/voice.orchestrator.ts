@@ -1,74 +1,13 @@
 import { Socket } from 'socket.io';
-
-import { AudioStreamHandler } from './audio/audio-stream.handler';
-import { WhisperStreamHandler } from './whisper/whisper-stream.handler';
+import { WhisperStreamService } from './whisper/whisper-stream.service';
 
 export class VoiceOrchestrator {
-  private readonly audio =
-    new AudioStreamHandler();
+  handleConnection(socket: Socket) {
+    const whisperStreamService = new WhisperStreamService();
+    socket.on('speech:recognize', (data: { audio: ArrayBuffer }) => {
+      whisperStreamService.recognizeSpeech(socket, data);
+    });
 
-//   private readonly whisper = new WhisperStreamHandler();
-
-  handleConnection(
-    socket: Socket,
-  ) {
-    const audioStream =
-      this.audio.create(
-        socket,
-        socket.id,
-      );
-
-    // let whisperStream =
-    //   this.whisper.create(
-    //     socket,
-    //   );
-
-    socket.on(
-      'audio:chunk',
-      (data: Buffer) => {
-        console.log("chunk received:", data.length);
-        const pcm =
-          Buffer.isBuffer(data)
-            ? data
-            : Buffer.from(data);
-
-        this.audio.write(
-          audioStream,
-          pcm,
-          socket.id,
-        );
-        // this.whisper.write(
-        //   whisperStream,
-        //   pcm,
-        // );
-      },
-    );
-
-    // socket.on(
-    //   'audio:end',
-    //   () => {
-    //     this.whisper.finish(
-    //       whisperStream,
-    //     );
-
-    //     whisperStream =
-    //       this.whisper.create(
-    //         socket,
-    //       );
-    //   },
-    // );
-
-    socket.on(
-      'disconnect',
-      () => {
-        this.audio.close(
-          audioStream,
-        );
-
-        // this.whisper.close(
-        //   whisperStream,
-        // );
-      },
-    );
+    socket.on('disconnect', () => {});
   }
 }

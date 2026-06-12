@@ -4,19 +4,18 @@ from src.core.logger import logger
 
 
 class Predictor:
+
     def __init__(self):
         self.model = ModelLoader.load()
 
-    def predict(self, image, conf=None, iou=None):
+    def predict(self, image):
         logger.debug(
-            f"Inference | conf={conf or Settings.CONFIDENCE} | iou={iou or Settings.IOU}"
+            "Running face recognition inference"
         )
 
-        results = self.model(
+        return self.model(
             image,
-            conf=conf or Settings.CONFIDENCE,
-            iou=iou or Settings.IOU,
-            verbose=False
+            conf=Settings.CONFIDENCE,
+            iou=Settings.IOU,
+            verbose=False,
         )
-
-        return results

@@ -1,3 +1,0 @@
-export const AUDIO_SAMPLE_RATE = 24000;
-export const AUDIO_FRAME_DURATION_MS = 100;
-export const AUDIO_PROCESSOR_BUFFER_SIZE = 4096;

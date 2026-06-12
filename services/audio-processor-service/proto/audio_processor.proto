@@ -1,13 +1,13 @@
 syntax = "proto3";
 
-package audio;
+package voice;
 
 service AudioProcessor {
 
-  rpc StreamAudio(stream AudioStreamChunk) returns (stream AudioStreamEvent);
+  rpc ProcessAudioStream(stream AudioStreamRequest) returns (stream AudioStreamEventResponse);
 }
 
-message AudioStreamChunk {
+message AudioStreamRequest {
 
   bytes pcm = 1;
 
@@ -20,7 +20,7 @@ message AudioStreamChunk {
   int64 timestamp_ms = 5;
 }
 
-message AudioStreamEvent {
+message AudioStreamEventResponse {
 
   oneof event {
 

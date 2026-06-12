@@ -1,18 +1,22 @@
 from concurrent import futures
+import os
 import grpc
 
 from grpc_health.v1 import health
 from grpc_health.v1 import health_pb2
 from grpc_health.v1 import health_pb2_grpc
 
-import whisper_pb2_grpc
+from gen import whisper_pb2_grpc
 
-from src.grpc.whisper_service import Whisper
+from src.controllers.whisper_controller import WhisperController
+from src.services.whisper_service import WhisperService
 from src.core.logger import logger
 
+PORT = int(os.getenv("GRPC_PORT", 50051))
+SERVICE_NAME = "voice.Whisper"
 
 def serve():
-
+    whisper_service = WhisperService()
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=4),
         options=[
@@ -22,7 +26,7 @@ def serve():
     )
 
     whisper_pb2_grpc.add_WhisperServicer_to_server(
-        Whisper(),
+        WhisperController(whisper_service),
         server,
     )
 
@@ -31,20 +35,16 @@ def serve():
         health_servicer,
         server,
     )
+    server.add_insecure_port(f"0.0.0.0:{PORT}")
 
+    server.start()
     health_servicer.set(
-        "voice.Whisper",
+        SERVICE_NAME,
         health_pb2.HealthCheckResponse.SERVING,
     )
 
-    server.add_insecure_port("0.0.0.0:50051")
-
-    server.start()
-
-    logger.info("Whisper service running on :50051")
+    logger.info(f"Whisper service running on :{PORT}")
 
     server.wait_for_termination()
 
 
-if __name__ == "__main__":
-    serve()
