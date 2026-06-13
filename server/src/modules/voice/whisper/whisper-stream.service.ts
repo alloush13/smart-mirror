@@ -1,21 +1,16 @@
-import { Socket } from 'socket.io';
-
 import { whisperClient } from './whisper.client';
+import { TranscribeResponse } from './types';
 
 export class WhisperStreamService {
-  recognizeSpeech(socket: Socket, payload: { audio: ArrayBuffer }) {
-    whisperClient.Transcribe(
-      {
-        data: payload.audio,
-      },
-      (err, response) => {
-        if (err) {
-          console.error(err);
-          return;
-        }
-
-        socket.emit('speech:result', response);
-      },
-    );
+  transcribe(audio: Buffer): Promise<TranscribeResponse> {
+    return new Promise((resolve, reject) => {
+      whisperClient.Transcribe(
+        { data: audio },
+        (err, response) => {
+          if (err) return reject(err);
+          resolve(response);
+        },
+      );
+    });
   }
 }

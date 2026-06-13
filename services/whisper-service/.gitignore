@@ -12,3 +12,4 @@ venv/
 generated/
 
 tests/
+storage/

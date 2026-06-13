@@ -9,8 +9,7 @@ class WhisperController(whisper_pb2_grpc.WhisperServicer):
         self.whisper_service = whisper_service
 
     def Transcribe(self, request, context):
-        audio_bytes = request.data
-        res = self.whisper_service.transcribe(audio_bytes)
+        res = self.whisper_service.transcribe(request.data)
         return whisper_pb2.TranscribeResponse(
             text=res["text"]
         )

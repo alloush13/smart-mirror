@@ -1,5 +1,6 @@
+import tempfile
+
 from faster_whisper import WhisperModel
-import numpy as np
 
 from src.core.config import MODEL_NAME
 
@@ -8,6 +9,7 @@ model = WhisperModel(
     MODEL_NAME,
     device="cpu",
     compute_type="int8",
+    download_root="./storage/models/whisper",
 )
 
 
@@ -16,20 +18,30 @@ class WhisperService:
     def __init__(self):
         self.model = model
 
-    def transcribe(self, audio: np.ndarray, language: str | None = None):
-        audio = audio.astype(np.float32)
+    def transcribe(
+        self,
+        audio_bytes: bytes,
+        language: str | None = None,
+    ):
+        with tempfile.NamedTemporaryFile(
+            suffix=".webm",
+            delete=True,
+        ) as audio_file:
 
-        segments, info = self.model.transcribe(
-            audio,
-            language=language if language else None,
-            vad_filter=False,
-        )
+            audio_file.write(audio_bytes)
+            audio_file.flush()
 
-        text = "".join(
-            segment.text for segment in segments
-        ).strip()
+            segments, info = self.model.transcribe(
+                audio_file.name,
+                language=language,
+                vad_filter=False,
+            )
 
-        return {
-            "text": text,
-            "language": info.language,
-        }
+            text = "".join(
+                segment.text for segment in segments
+            ).strip()
+
+            return {
+                "text": text,
+                "language": info.language,
+            }
