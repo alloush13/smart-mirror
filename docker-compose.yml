@@ -56,6 +56,7 @@ services:
     ports:
       - '50054:50054'
     restart: unless-stopped
+
 networks:
   backend:
     driver: bridge

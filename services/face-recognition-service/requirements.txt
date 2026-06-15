@@ -1,5 +1,3 @@
-ultralytics
-numpy
 grpcio
 grpcio-tools
 grpcio-health-checking

@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM python-base
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -6,14 +6,6 @@ ENV PYTHONPATH=/app
 
 
 WORKDIR /app
-
-RUN pip install --upgrade pip setuptools wheel
-
-
-RUN pip install --no-cache-dir \
-    torch \
-    torchvision \
-    --index-url https://download.pytorch.org/whl/cpu
 
 COPY requirements.txt ./requirements.txt
 
