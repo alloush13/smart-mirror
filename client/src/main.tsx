@@ -4,13 +4,16 @@ import { BrowserRouter } from "react-router";
 import './index.css'
 import App from './App.tsx'
 import { SocketProvider } from './providers/SocketProvider.tsx';
+import { CameraProvider } from './providers/CameraProvider.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
     <SocketProvider>
-      <StrictMode>
-        <App />
-      </StrictMode>
+      <CameraProvider>
+        <StrictMode>
+          <App />
+        </StrictMode>
+      </CameraProvider>
     </SocketProvider>
   </BrowserRouter>
 )

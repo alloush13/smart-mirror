@@ -14,4 +14,7 @@ export const env = {
 
   AUDIO_SAMPLE_RATE: Number(process.env.AUDIO_SAMPLE_RATE ?? 16000),
   AUDIO_CHANNELS: Number(process.env.AUDIO_CHANNELS ?? 1),
+
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
 };

@@ -1,17 +1,25 @@
-export type IntentResult = {
-  intent: string;
-  entities: Record<string, unknown>;
-  confidence: number;
-};
+import { LLMService } from '../../llm/llm.service';
 
+import { IntentCommands, IntentResponse } from './types';
 export class IntentService {
-  async detect(text: string): Promise<IntentResult> {
-    // استدعاء LLM هنا
+  private llmService = new LLMService();
+  private intents = Object.values(IntentCommands);
+  async detect(text: string): Promise<IntentResponse> {
+    const prompt = `You are an assistant.
 
-    return {
-      intent: 'GET_TIME',
-      entities: {},
-      confidence: 0.95,
-    };
+You MUST always respond in Arabic.
+
+Rules:
+- Always respond in Arabic
+- Keep responses clear and short
+- If user writes in English, still respond in Arabic
+- answer must be short and useful
+User:
+${text}
+`;
+
+    const result = await this.llmService.generateResponse(prompt, this.intents);
+    console.log(result);
+    return result;
   }
 }

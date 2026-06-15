@@ -33,13 +33,13 @@ services:
       - '50051:50051'
     restart: unless-stopped
 
-  # whisper-service:
-  #   build:
-  #     context: ./services/whisper-service
-  #   container_name: whisper-service
-  #   ports:
-  #     - '50052:50052'
-  #   restart: unless-stopped
+  whisper-service:
+    build:
+      context: ./services/whisper-service
+    container_name: whisper-service
+    ports:
+      - '50051:50051'
+    restart: unless-stopped
 
   skin-analysis-service:
     build:

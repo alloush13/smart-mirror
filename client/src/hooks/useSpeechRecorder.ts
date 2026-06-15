@@ -7,8 +7,9 @@ import {
 
 import { useSocket } from "./useSocket";
 
-const SPEECH_THRESHOLD = 30;
+const SPEECH_THRESHOLD = 40;
 const END_OF_SPEECH_MS = 1200;
+const MIN_RECORDING_MS = 2000;
 
 export const useSpeechRecorder = () => {
     const socket = useSocket();
@@ -19,6 +20,7 @@ export const useSpeechRecorder = () => {
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
+    const recordingStartedAtRef = useRef<number | null>(null);
     const silenceStartedRef = useRef<number | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -69,6 +71,15 @@ export const useSpeechRecorder = () => {
             });
 
             chunksRef.current = [];
+            const recordingStartedAt = recordingStartedAtRef.current;
+            recordingStartedAtRef.current = null;
+
+            if (
+                !recordingStartedAt ||
+                Date.now() - recordingStartedAt < MIN_RECORDING_MS
+            ) {
+                return;
+            }
 
             const buffer = await blob.arrayBuffer();
 
@@ -94,6 +105,7 @@ export const useSpeechRecorder = () => {
 
                 if (recorder.state === "inactive") {
                     chunksRef.current = [];
+                    recordingStartedAtRef.current = Date.now();
                     recorder.start(250);
                     setRecording(true);
                 }

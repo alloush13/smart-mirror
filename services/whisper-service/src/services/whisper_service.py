@@ -12,7 +12,6 @@ model = WhisperModel(
     download_root="./storage/models/whisper",
 )
 
-
 class WhisperService:
 
     def __init__(self):
