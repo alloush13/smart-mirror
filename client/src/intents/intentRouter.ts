@@ -4,6 +4,7 @@ import type { IntentResponse } from "./intentTypes";
 type IntentActions = {
   openCamera: () => Promise<void>;
   closeCamera: () => Promise<void>;
+  recognizeFace: () => Promise<void> | void;
 };
 
 type IntentHandler = (
@@ -21,7 +22,9 @@ const handlers: Record<string, IntentHandler> = {
     console.log("📷 Camera stopped from voice command");
   },
 
-  [IntentCommands.FACE_RECOGNITION]: () => {
+  [IntentCommands.FACE_RECOGNITION]: async (_intent, actions) => {
+    await actions.openCamera();
+    await actions.recognizeFace();
     console.log("😀 Face recognition started");
   },
 

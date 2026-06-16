@@ -10,7 +10,7 @@ services:
       CLIENT_ORIGIN: http://localhost:5173
       SKIN_ANALYSIS_SERVICE_URL: skin-analysis-service:50053
       FACE_RECOGNITION_SERVICE_URL: face-recognition-service:50054
-      AUDIO_PROCESSOR_SERVICE_URL: audio-processor-service:50051
+      WHISPER_SERVICE_URL: whisper-service:50051
     ports:
       - "5000:5000"
 
@@ -21,22 +21,18 @@ services:
     networks:
       - backend
     ports:
-      - '80:80'
-    restart: unless-stopped
-
-  audio-processor-service:
-    build: ./services/audio-processor-service
-    container_name: audio-processor-service
-    networks:
-      - backend
-    ports:
-      - '50051:50051'
+      - '5173:5173'
+    volumes:
+      - ./client:/app
+      - /app/node_modules
     restart: unless-stopped
 
   whisper-service:
     build:
       context: ./services/whisper-service
     container_name: whisper-service
+    networks:
+      - backend
     ports:
       - '50051:50051'
     restart: unless-stopped
@@ -45,6 +41,8 @@ services:
     build:
       context: ./services/skin-analysis-service
     container_name: skin-analysis-service
+    networks:
+      - backend
     ports:
       - '50053:50053'
     restart: unless-stopped
@@ -53,6 +51,8 @@ services:
     build:
       context: ./services/face-recognition-service
     container_name: face-recognition-service
+    networks:
+      - backend
     ports:
       - '50054:50054'
     restart: unless-stopped

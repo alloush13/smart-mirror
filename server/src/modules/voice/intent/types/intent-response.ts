@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { IntentCommands } from './intent-commands';
 
 export const IntentSchema = z.object({
-  type: z.enum(['COMMAND', 'QUERY']),
+  type: z.enum(['COMMAND', 'QUERY', 'UNKNOWN']),
 
-  intent: z.enum(Object.values(IntentCommands) as [string, ...string[]]),
+  intent: z.nativeEnum(IntentCommands),
 
   answer: z.string(),
 });

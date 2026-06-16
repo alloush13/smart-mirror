@@ -7,9 +7,11 @@ import {
 
 import { useSocket } from "./useSocket";
 
-const SPEECH_THRESHOLD = 40;
+const SPEECH_THRESHOLD = 60;
 const END_OF_SPEECH_MS = 1200;
-const MIN_RECORDING_MS = 2000;
+const MIN_RECORDING_MS = 1200;
+const SPEECH_START_EVENT = "assistant:speech-start";
+const SPEECH_END_EVENT = "assistant:speech-end";
 
 export const useSpeechRecorder = () => {
     const socket = useSocket();
@@ -25,6 +27,7 @@ export const useSpeechRecorder = () => {
     const streamRef = useRef<MediaStream | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const animationRef = useRef<number>(0);
+    const assistantSpeakingRef = useRef(false);
     
 
     const stopRecording = useCallback(() => {
@@ -37,6 +40,22 @@ export const useSpeechRecorder = () => {
 
         silenceStartedRef.current = null;
         setRecording(false);
+    }, []);
+
+    const discardCurrentRecording = useCallback(() => {
+        chunksRef.current = [];
+        recordingStartedAtRef.current = null;
+        silenceStartedRef.current = null;
+
+        if (
+            mediaRecorderRef.current &&
+            mediaRecorderRef.current.state === "recording"
+        ) {
+            mediaRecorderRef.current.stop();
+        }
+
+        setRecording(false);
+        setIsSpeaking(false);
     }, []);
 
     const start = useCallback(async () => {
@@ -66,16 +85,18 @@ export const useSpeechRecorder = () => {
         };
 
         recorder.onstop = async () => {
+            const recordingStartedAt = recordingStartedAtRef.current;
+
             const blob = new Blob(chunksRef.current, {
                 type: "audio/webm",
             });
 
             chunksRef.current = [];
-            const recordingStartedAt = recordingStartedAtRef.current;
             recordingStartedAtRef.current = null;
 
             if (
                 !recordingStartedAt ||
+                assistantSpeakingRef.current ||
                 Date.now() - recordingStartedAt < MIN_RECORDING_MS
             ) {
                 return;
@@ -98,6 +119,19 @@ export const useSpeechRecorder = () => {
             setVolume(avg);
 
             const speaking = avg > SPEECH_THRESHOLD;
+
+            if (assistantSpeakingRef.current) {
+                setVolume(0);
+                setIsSpeaking(false);
+
+                if (recorder.state === "recording") {
+                    discardCurrentRecording();
+                }
+
+                animationRef.current = requestAnimationFrame(tick);
+                return;
+            }
+
             setIsSpeaking(speaking);
 
             if (speaking) {
@@ -126,7 +160,7 @@ export const useSpeechRecorder = () => {
         };
 
         tick();
-    }, [socket, stopRecording]);
+    }, [discardCurrentRecording, socket, stopRecording]);
 
     const stop = useCallback(async () => {
         cancelAnimationFrame(animationRef.current);
@@ -143,6 +177,39 @@ export const useSpeechRecorder = () => {
             stop();
         };
     }, [stop]);
+
+    useEffect(() => {
+        const handleAssistantSpeechStart = () => {
+            assistantSpeakingRef.current = true;
+            setVolume(0);
+            discardCurrentRecording();
+        };
+
+        const handleAssistantSpeechEnd = () => {
+            assistantSpeakingRef.current = false;
+            silenceStartedRef.current = null;
+        };
+
+        window.addEventListener(
+            SPEECH_START_EVENT,
+            handleAssistantSpeechStart,
+        );
+        window.addEventListener(
+            SPEECH_END_EVENT,
+            handleAssistantSpeechEnd,
+        );
+
+        return () => {
+            window.removeEventListener(
+                SPEECH_START_EVENT,
+                handleAssistantSpeechStart,
+            );
+            window.removeEventListener(
+                SPEECH_END_EVENT,
+                handleAssistantSpeechEnd,
+            );
+        };
+    }, [discardCurrentRecording]);
 
     return {
         start,

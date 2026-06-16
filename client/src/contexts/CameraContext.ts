@@ -3,8 +3,10 @@ import { createContext, useContext } from "react";
 export type CameraContextType = {
   active: boolean;
   stream: MediaStream | null;
+  faceRecognitionRequestId: number;
   setStream: (s: MediaStream | null) => void;
   setActive: (v: boolean) => void;
+  requestFaceRecognition: () => void;
 };
 
 export const CameraContext = createContext<CameraContextType | null>(null);

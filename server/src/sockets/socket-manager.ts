@@ -21,6 +21,7 @@ export class SocketManager {
   private registerFaceHandlers(socket: Socket): void {
     socket.on('face:recognize', async (data: { image: Buffer }) => {
       try {
+        console.log('face:recognize');
         const result = await this.faceService.recognize(data.image);
 
         socket.emit('face:result', result);

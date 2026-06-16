@@ -23,12 +23,6 @@ build
 README.md
 *.md
 
-# Environment
-.env
-.env.local
-.env.*.local
-example.env
-
 # Testing
 coverage
 .nyc_output

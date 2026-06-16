@@ -8,10 +8,22 @@ interface Props {
 export function CameraProvider({ children }: Props) {
   const [active, setActive] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [faceRecognitionRequestId, setFaceRecognitionRequestId] = useState(0);
+
+  const requestFaceRecognition = () => {
+    setFaceRecognitionRequestId((current) => current + 1);
+  };
 
   return (
     <CameraContext.Provider
-      value={{ active, stream, setStream, setActive }}
+      value={{
+        active,
+        stream,
+        faceRecognitionRequestId,
+        setStream,
+        setActive,
+        requestFaceRecognition,
+      }}
     >
       {children}
     </CameraContext.Provider>

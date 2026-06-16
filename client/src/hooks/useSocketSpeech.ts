@@ -4,6 +4,7 @@ import { useSocket } from './useSocket';
 
 import type { IntentResponse } from '../intents/intentTypes';
 
+import { IntentCommands } from '../intents/intentCommands';
 import { executeIntent } from '../intents/intentRouter';
 import { cameraService } from '../services/cameraService';
 import { speechSynthesisService } from '../services/speechSynthesisService';
@@ -11,7 +12,7 @@ import { useCamera } from '../contexts/CameraContext';
 
 export const useSocketSpeech = () => {
   const socket = useSocket();
-  const { setActive, setStream } = useCamera();
+  const { requestFaceRecognition, setActive, setStream } = useCamera();
 
   const [transcript, setTranscript] =
     useState('');
@@ -21,7 +22,10 @@ export const useSocketSpeech = () => {
       data: IntentResponse,
     ) => {
       setTranscript(data.answer);
-      speechSynthesisService.speak(data.answer);
+
+      if (data.intent !== IntentCommands.FACE_RECOGNITION) {
+        speechSynthesisService.speak(data.answer);
+      }
 
       executeIntent(data, {
         openCamera: async () => {
@@ -33,6 +37,9 @@ export const useSocketSpeech = () => {
           cameraService.stop();
           setStream(null);
           setActive(false);
+        },
+        recognizeFace: () => {
+          requestFaceRecognition();
         },
       });
     };
@@ -50,7 +57,7 @@ export const useSocketSpeech = () => {
         onResult,
       );
     };
-  }, [setActive, setStream, socket]);
+  }, [requestFaceRecognition, setActive, setStream, socket]);
 
   return { transcript };
 };

@@ -43,7 +43,7 @@ export class Gemini {
           },
           type: {
             type: 'string',
-            enum: ['COMMAND', 'QUERY'],
+            enum: ['COMMAND', 'QUERY', 'UNKNOWN'],
           },
         },
         required: ['intent', 'answer', 'type'],
