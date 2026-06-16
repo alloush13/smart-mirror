@@ -7,7 +7,7 @@ import {
 
 import { useSocket } from "./useSocket";
 
-const SPEECH_THRESHOLD = 60;
+const SPEECH_THRESHOLD = 30;
 const END_OF_SPEECH_MS = 1200;
 const MIN_RECORDING_MS = 1200;
 const SPEECH_START_EVENT = "assistant:speech-start";
