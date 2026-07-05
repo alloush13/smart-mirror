@@ -1,15 +1,17 @@
+import { memo } from "react";
+
 type Props = {
-    listening: boolean;
+  listening: boolean;
 };
 
 const StatusText = ({ listening }: Props) => {
-    return (
-        <div className="mt-8 text-xl text-gray-300">
-            {listening
-                ? "Listening..."
-                : "Waiting..."}
-        </div>
-    );
+  const text = listening ? "Listening..." : "Waiting...";
+
+  return (
+    <div className="mt-8 text-xl text-gray-300">
+      {text}
+    </div>
+  );
 };
 
-export default StatusText;
+export default memo(StatusText);

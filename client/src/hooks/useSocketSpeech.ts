@@ -1,63 +1,76 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from "react";
 
-import { useSocket } from './useSocket';
+import { useSocket } from "./useSocket";
 
-import type { IntentResponse } from '../intents/intentTypes';
+import type { IntentResponse } from "../intents/intentTypes";
 
-import { IntentCommands } from '../intents/intentCommands';
-import { executeIntent } from '../intents/intentRouter';
-import { cameraService } from '../services/cameraService';
-import { speechSynthesisService } from '../services/speechSynthesisService';
-import { useCamera } from '../contexts/CameraContext';
+import { IntentCommands } from "../intents/intentCommands";
+import { executeIntent } from "../intents/intentRouter";
+import { cameraService } from "../services/cameraService";
+import { speechSynthesisService } from "../services/speechSynthesisService";
+import { useCamera } from "../contexts/CameraContext";
 
 export const useSocketSpeech = () => {
   const socket = useSocket();
-  const { requestFaceRecognition, setActive, setStream } = useCamera();
 
-  const [transcript, setTranscript] =
-    useState('');
+  const { requestFaceRecognition, requestSkinAnalysis, setActive, setStream } = useCamera();
+
+  const [transcript, setTranscript] = useState("");
+
+  const handlersRef = useRef({
+    requestFaceRecognition,
+    requestSkinAnalysis,
+    setActive,
+    setStream,
+  });
 
   useEffect(() => {
-    const onResult = (
-      data: IntentResponse,
-    ) => {
-      setTranscript(data.answer);
-
-      if (data.intent !== IntentCommands.FACE_RECOGNITION) {
-        speechSynthesisService.speak(data.answer);
-      }
-
-      executeIntent(data, {
-        openCamera: async () => {
-          const stream = await cameraService.start();
-          setStream(stream);
-          setActive(true);
-        },
-        closeCamera: async () => {
-          cameraService.stop();
-          setStream(null);
-          setActive(false);
-        },
-        recognizeFace: () => {
-          requestFaceRecognition();
-        },
-      });
+    handlersRef.current = {
+      requestFaceRecognition,
+      requestSkinAnalysis,
+      setActive,
+      setStream,
     };
+  }, [requestFaceRecognition, requestSkinAnalysis, setActive, setStream]);
 
-    socket.on(
-      'intent:result',
-      onResult,
-    );
+  const onResult = useCallback((data: IntentResponse) => {
+    setTranscript(data.answer);
+
+    if (data.intent !== IntentCommands.FACE_RECOGNITION) {
+      speechSynthesisService.speak(data.answer);
+    }
+
+    executeIntent(data, {
+      openCamera: async () => {
+        const stream = await cameraService.start();
+        handlersRef.current.setStream(stream);
+        handlersRef.current.setActive(true);
+      },
+
+      closeCamera: async () => {
+        cameraService.stop();
+        handlersRef.current.setStream(null);
+        handlersRef.current.setActive(false);
+      },
+
+      recognizeFace: () => {
+        handlersRef.current.requestFaceRecognition();
+      },
+
+      analyzeSkin: () => {
+        handlersRef.current.requestSkinAnalysis();
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    socket.on("intent:result", onResult);
 
     return () => {
       speechSynthesisService.stop();
-
-      socket.off(
-        'intent:result',
-        onResult,
-      );
+      socket.off("intent:result", onResult);
     };
-  }, [requestFaceRecognition, setActive, setStream, socket]);
+  }, [socket, onResult]);
 
   return { transcript };
 };

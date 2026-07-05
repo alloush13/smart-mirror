@@ -1,5 +1,5 @@
 import { faceRecognitionClient } from './face-recognition.client';
-
+import { Socket } from 'socket.io';
 export interface RecognizeResponse {
   predictions: {
     name: string;
@@ -14,6 +14,22 @@ export class FaceRecognitionService {
         if (err) return reject(err);
         resolve(res);
       });
+    });
+  }
+
+  registerFaceHandlers(socket: Socket): void {
+    socket.on('face:recognize', async (data: { image: Buffer }) => {
+      try {
+        console.log('face:recognize');
+        const result = await this.recognize(data.image);
+
+        socket.emit('face:result', result);
+      } catch (error) {
+        console.log(error);
+        socket.emit('face:error', {
+          message: 'Face recognition failed',
+        });
+      }
     });
   }
 }

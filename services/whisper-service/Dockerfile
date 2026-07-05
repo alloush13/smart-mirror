@@ -1,11 +1,9 @@
-FROM python:3.12
+FROM python-base
 
 WORKDIR /app
 
 ENV PYTHONPATH=/app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
 COPY proto/ ./proto/
 COPY src/ ./src/

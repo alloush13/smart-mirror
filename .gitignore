@@ -2,3 +2,4 @@ scan.sh
 scan.txt
 /test
 .DS_Store
+server/.env

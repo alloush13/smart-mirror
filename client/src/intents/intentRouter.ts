@@ -5,12 +5,10 @@ type IntentActions = {
   openCamera: () => Promise<void>;
   closeCamera: () => Promise<void>;
   recognizeFace: () => Promise<void> | void;
+  analyzeSkin: () => void;
 };
 
-type IntentHandler = (
-  intent: IntentResponse,
-  actions: IntentActions,
-) => void | Promise<void>;
+type IntentHandler = (intent: IntentResponse, actions: IntentActions) => void | Promise<void>;
 
 const handlers: Record<string, IntentHandler> = {
   [IntentCommands.RUN_CAMERA]: async (_intent, actions) => {
@@ -28,8 +26,10 @@ const handlers: Record<string, IntentHandler> = {
     console.log("😀 Face recognition started");
   },
 
-  [IntentCommands.SKIN_ANALYSIS]: () => {
-    console.log("🧴 Skin analysis started");
+  [IntentCommands.SKIN_ANALYSIS]: async (_, actions) => {
+    await actions.openCamera();
+    actions.analyzeSkin();
+    console.log("SKIN_ANALYSIS");
   },
 };
 

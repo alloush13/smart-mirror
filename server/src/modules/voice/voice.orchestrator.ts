@@ -10,26 +10,26 @@ export class VoiceOrchestrator {
   handleConnection(socket: Socket) {
     socket.on('speech:recognize', async (data: { audio: ArrayBuffer }) => {
       try {
-        // console.log('speech:recognize');
-        // if (!VoiceOrchestrator.i) {
-        //   socket.emit('intent:result', {
-        //     type: 'COMMAND',
-        //     intent: 'RUN_CAMERA',
-        //     answer: 'بالتأكيد، الكاميرا تعمل الآن.',
-        //   });
-        //   VoiceOrchestrator.i = true;
-        // } else {
-        //   socket.emit('intent:result', {
-        //     type: 'COMMAND',
-        //     intent: 'STOP_CAMERA',
-        //     answer: 'تم إغلاق الكاميرا.',
-        //   });
-        //   VoiceOrchestrator.i = false;
-        // }
+        await new Promise((r) => setTimeout(r, 600));
+        console.log('speech:recognize');
+        if (!VoiceOrchestrator.i) {
+          socket.emit('intent:result', {
+            type: 'COMMAND',
+            intent: 'RUN_CAMERA',
+            answer: 'بالتأكيد، الكاميرا تعمل الآن.',
+          });
+          VoiceOrchestrator.i = true;
+        } else {
+          socket.emit('intent:result', {
+            type: 'COMMAND',
+            intent: 'SKIN_ANALYSIS',
+            answer: 'حسنًا، سأقوم بتحليل البشرة الآن.',
+          });
+        }
 
-        const transcript = await this.whisperService.transcribe(data.audio);
-        const intent = await this.intentService.detect(transcript.text);
-        socket.emit('intent:result', intent);
+        // const transcript = await this.whisperService.transcribe(data.audio);
+        // const intent = await this.intentService.detect(transcript.text);
+        // socket.emit('intent:result', intent);
       } catch (error) {
         console.error('Error processing speech:', error.message);
         socket.emit('speech:error', { message: 'Failed to process speech' });

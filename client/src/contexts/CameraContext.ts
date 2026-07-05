@@ -7,6 +7,8 @@ export type CameraContextType = {
   setStream: (s: MediaStream | null) => void;
   setActive: (v: boolean) => void;
   requestFaceRecognition: () => void;
+  skinAnalysisRequestId: number;
+  requestSkinAnalysis: () => void;
 };
 
 export const CameraContext = createContext<CameraContextType | null>(null);

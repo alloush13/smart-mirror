@@ -1,52 +1,67 @@
-const ARABIC_LANG = 'ar-SA';
-const SPEECH_START_EVENT = 'assistant:speech-start';
-const SPEECH_END_EVENT = 'assistant:speech-end';
+const SPEECH_START_EVENT = "assistant:speech-start";
+const SPEECH_END_EVENT = "assistant:speech-end";
 
 class SpeechSynthesisService {
-  private utteranceId = 0;
+  private queue: string[] = [];
+  private speaking = false;
 
   speak(text: string) {
-    const cleanText = text.trim();
+    const clean = text?.trim();
+    if (!clean) return;
 
-    if (!cleanText || !('speechSynthesis' in window)) return;
+    this.queue.push(clean);
 
-    this.utteranceId += 1;
-    const currentUtteranceId = this.utteranceId;
+    if (this.speaking) return;
 
-    window.speechSynthesis.cancel();
-    window.dispatchEvent(new Event(SPEECH_START_EVENT));
+    this.processQueue();
+  }
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = ARABIC_LANG;
+  private processQueue() {
+    if (!this.queue.length) {
+      this.speaking = false;
+      window.dispatchEvent(new Event(SPEECH_END_EVENT));
+      return;
+    }
+
+    const text = this.queue.shift()!;
+    this.speaking = true;
+
+    if (!("speechSynthesis" in window)) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    utterance.lang = "ar-SA";
     utterance.rate = 1;
     utterance.pitch = 1;
 
-    const arabicVoice = window.speechSynthesis
-      .getVoices()
-      .find((voice) => voice.lang.toLowerCase().startsWith('ar'));
+    const voices = window.speechSynthesis.getVoices();
+    const arabicVoice = voices.find(v => v.lang.toLowerCase().includes("ar"));
 
     if (arabicVoice) {
       utterance.voice = arabicVoice;
     }
 
-    const finish = () => {
-      if (this.utteranceId === currentUtteranceId) {
-        window.dispatchEvent(new Event(SPEECH_END_EVENT));
-      }
+    window.dispatchEvent(new Event(SPEECH_START_EVENT));
+
+    utterance.onend = () => {
+      this.speaking = false;
+      this.processQueue();
     };
 
-    utterance.onend = finish;
-    utterance.onerror = finish;
+    utterance.onerror = () => {
+      this.speaking = false;
+      this.processQueue();
+    };
 
+    window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   }
 
   stop() {
-    if ('speechSynthesis' in window) {
-      this.utteranceId += 1;
-      window.speechSynthesis.cancel();
-      window.dispatchEvent(new Event(SPEECH_END_EVENT));
-    }
+    this.queue = [];
+    this.speaking = false;
+    window.speechSynthesis.cancel();
+    window.dispatchEvent(new Event(SPEECH_END_EVENT));
   }
 }
 

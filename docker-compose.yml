@@ -11,24 +11,31 @@ services:
       SKIN_ANALYSIS_SERVICE_URL: skin-analysis-service:50053
       FACE_RECOGNITION_SERVICE_URL: face-recognition-service:50054
       WHISPER_SERVICE_URL: whisper-service:50051
-      # GEMINI_API_KEY: AIzaSyC16Gj6-wXm6vjalf9Nq_7gF1EGb6dbx-k
-      GEMINI_API_KEY: AIzaSyDJnDhNqFO9_tK71lqlphRknXwMzOVaafs
+      GEMINI_API_KEY: AIzaSyC16Gj6-wXm6vjalf9Nq_7gF1EGb6dbx-k
+      # GEMINI_API_KEY: AIzaSyDJnDhNqFO9_tK71lqlphRknXwMzOVaafs
 
     ports:
       - "5000:5000"
 
-  client:
-    build:
-      context: ./client
-    container_name: smart_mirror_client
-    networks:
-      - backend
-    ports:
-      - '5173:5173'
-    volumes:
-      - ./client:/app
-      - /app/node_modules
-    restart: unless-stopped
+  # client:
+  #   build:
+  #     context: ./client
+  #   container_name: smart_mirror_client
+  #   networks:
+  #     - backend
+  #   ports:
+  #     - '5173:5173'
+  #   volumes:
+  #     - ./client:/app
+  #     - /app/node_modules
+  #   environment:
+  #     VITE_API_URL: http://localhost:5000
+  #     VITE_SPEECH_THRESHOLD: 60
+  #     VITE_END_OF_SPEECH_MS: 1200
+  #     VITE_MIN_RECORDING_MS: 1200
+  #     VITE_SKIN_OVERLAY_DURATION: 5000
+
+  #   restart: unless-stopped
 
   whisper-service:
     build:
@@ -44,6 +51,9 @@ services:
     build:
       context: ./services/skin-analysis-service
     container_name: skin-analysis-service
+    environment:
+      MODEL_CONFIDENCE: 0.1
+      DEFAULT_IOU: 0.7
     networks:
       - backend
     ports:
@@ -59,6 +69,34 @@ services:
     ports:
       - '50054:50054'
     restart: unless-stopped
+
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./infra/nginx/Dockerfile
+      args:
+        VITE_API_URL: http://localhost:5000
+        VITE_SPEECH_THRESHOLD: 60
+        VITE_END_OF_SPEECH_MS: 1200
+        VITE_MIN_RECORDING_MS: 1200
+        VITE_SKIN_OVERLAY_DURATION: 5000
+
+    container_name: smart_mirror_nginx
+    ports:
+      - "443:443"
+    depends_on:
+      - server
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # mkcert:
+  #   build:
+  #     context: ./infra/mkcert
+  #   volumes:
+  #     - .:/app
+  #   working_dir: /app
 
 networks:
   backend:

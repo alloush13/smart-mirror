@@ -20,4 +20,10 @@ RUN pip install --no-cache-dir \
     ultralytics \
     pillow \
     numpy \
-    opencv-python-headless
+    opencv-python-headless \
+    grpcio \
+    grpcio-tools \
+    grpcio-health-checking \
+    faster-whisper \
+    protobuf
+
