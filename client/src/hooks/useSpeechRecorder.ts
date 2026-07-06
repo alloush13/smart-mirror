@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSocket } from "./useSocket";
 import { useAudio } from "./useAudio";
 
-const SPEECH_THRESHOLD = Number(import.meta.env.VITE_SPEECH_THRESHOLD ?? 50);
-const END_OF_SPEECH_MS = Number(import.meta.env.VITE_END_OF_SPEECH_MS ?? 1200);
-const MIN_RECORDING_MS = Number(import.meta.env.VITE_MIN_RECORDING_MS ?? 1200);
+const SPEECH_THRESHOLD = 30
+const END_OF_SPEECH_MS = 1200;
+const MIN_RECORDING_MS = 1200;
 
 const SPEECH_START_EVENT = "assistant:speech-start";
 const SPEECH_END_EVENT = "assistant:speech-end";
@@ -89,6 +89,7 @@ export const useSpeechRecorder = () => {
       const avg = data.reduce((a, b) => a + b, 0) / data.length;
 
       setVolume(avg);
+      console.log(import.meta.env.VITE_SPEECH_THRESHOLD);
 
       const speaking = avg > SPEECH_THRESHOLD;
 

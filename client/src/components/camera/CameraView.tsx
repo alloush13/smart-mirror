@@ -43,6 +43,7 @@ export default function CameraView() {
 
     if (normalized && normalized !== "stranger") {
       speechSynthesisService.speak(`أهلاً ${name}`);
+      
     } else {
       speechSynthesisService.speak("لم يتم التعرف عليك");
     }

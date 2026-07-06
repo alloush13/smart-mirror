@@ -6,7 +6,7 @@ import { Server } from 'socket.io';
 import { SocketManager } from './sockets/socket-manager';
 import { healthRoutes } from './modules/health/health.route';
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 const app = express();
 
 app.use(cors());
@@ -21,9 +21,15 @@ const io = new Server(server, {
     origin: '*',
   },
 });
+io.on('connection', (socket) => {
+  console.log('Client connected');
 
+  socket.on('disconnect', () => {
+    console.log('Client disconnected');
+  });
+});
 new SocketManager(io).register();
 
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
 });
